@@ -3,7 +3,7 @@
 ![NPM Version](https://img.shields.io/npm/v/untitled-pixi-live2d-engine?style=flat-square&label=version)
 ![Cubism version](https://img.shields.io/badge/Cubism-2/3/4/5-ff69b4?style=flat-square)
 
-**English (Current)** | [**简体中文**](README-ZH.md)
+**English (Current)** | [**简体中文**](README-ZH.md) | [**日本語**](README-JA.md)
 
 A Live2D rendering and control plugin designed for **[PixiJS v8](https://pixijs.com/)**.
 

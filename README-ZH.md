@@ -3,7 +3,7 @@
 ![NPM Version](https://img.shields.io/npm/v/untitled-pixi-live2d-engine?style=flat-square&label=version)
 ![Cubism version](https://img.shields.io/badge/Cubism-2/3/4/5-ff69b4?style=flat-square)
 
-[**English**](README.md) | **简体中文 (当前)**
+[**English**](README.md) | **简体中文 (当前)** | [**日本語**](README-JA.md)
 
 一款面向 **[PixiJS v8](https://pixijs.com/)** 的 Live2D 显示与控制插件。
 
