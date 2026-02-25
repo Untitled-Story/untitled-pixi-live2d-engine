@@ -1,6 +1,6 @@
 {
   "name": "untitled-pixi-live2d-engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "PixiJS v8 Live2D Engine | Supports Cubism 25 SDK | Lip-sync & Parallel Motion",
   "packageManager": "pnpm@10.26.2",
   "main": "dist/index.js",
