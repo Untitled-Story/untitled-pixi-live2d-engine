@@ -88,6 +88,18 @@ export interface InternalModelOptions extends MotionManagerOptions {
    * @default 1.0
    */
   breathDepth?: number
+
+  /**
+   * Gain multiplier applied to the analyzed mouth-sync input value.
+   * @default 1.5
+   */
+  lipSyncGain?: number
+
+  /**
+   * Blend weight used when adding lip-sync values to mouth parameters.
+   * @default 0.4
+   */
+  lipSyncWeight?: number
 }
 
 const tempBounds: Bounds = { x: 0, y: 0, width: 0, height: 0 }

@@ -72,7 +72,11 @@ export class CubismInternalModel extends InternalModel {
 
     this.coreModel = coreModel
     this.settings = settings
-    this.options = Object.assign({}, { breathDepth: 1 }, options)
+    this.options = Object.assign(
+      {},
+      { breathDepth: 1, lipSyncGain: 1.5, lipSyncWeight: 0.4 },
+      options
+    )
     this.idManager = CubismFramework.getIdManager()
 
     this.idParamAngleX = this.getIdSafe(CubismDefaultParameterId.ParamAngleX)
@@ -282,15 +286,13 @@ export class CubismInternalModel extends InternalModel {
     this.updateNaturalMovements(dt * 1000, now * 1000)
 
     if (this.lipSync && this.motionManager.currentAudio) {
-      const lipSyncGain = 1.5
-      const smoothing = 0.4
-      let value = this.motionManager.mouthSync() * lipSyncGain
+      let value = this.motionManager.mouthSync() * this.options.lipSyncGain!
       value = Math.pow(value, 1.15)
       const min_ = value > 0 ? 0.1 : 0
       const max_ = 1
       value = clamp(value, min_, max_)
       this.motionManager.lipSyncIds.forEach((lipSyncId) => {
-        model.addParameterValueById(this.getIdSafe(lipSyncId), value, smoothing)
+        model.addParameterValueById(this.getIdSafe(lipSyncId), value, this.options.lipSyncWeight)
       })
     }
 
