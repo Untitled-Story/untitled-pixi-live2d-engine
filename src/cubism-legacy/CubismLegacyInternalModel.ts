@@ -74,7 +74,11 @@ export class CubismLegacyInternalModel extends InternalModel {
 
     this.coreModel = coreModel
     this.settings = settings
-    this.options = Object.assign({}, { breathDepth: 1 }, options)
+    this.options = Object.assign(
+      {},
+      { breathDepth: 1, lipSyncGain: 1.5, lipSyncWeight: 0.4 },
+      options
+    )
     this.motionManager = new CubismLegacyMotionManager(this)
     this.parallelMotionManager = []
     this.eyeBlink = new Live2DEyeBlink(coreModel)
@@ -268,18 +272,17 @@ export class CubismLegacyInternalModel extends InternalModel {
     this.updateNaturalMovements(dt, now)
 
     if (this.lipSync && this.motionManager.currentAudio) {
-      const lipSyncGain = 1.5
-      let value = this.motionManager.mouthSync() * lipSyncGain
+      let value = this.motionManager.mouthSync() * this.options.lipSyncGain!
       const max_ = 1
-      const bias_power = 1.15
       const min_ = value > 0 ? 0.1 : 0
-      value = Math.pow(value, bias_power)
+      value = Math.pow(value, 1.15)
       value = clamp(value, min_, max_)
 
       for (let i = 0; i < this.motionManager.lipSyncIds.length; ++i) {
-        this.coreModel.setParamFloat(
+        this.coreModel.addToParamFloat(
           this.coreModel.getParamIndex(this.motionManager.lipSyncIds[i]!),
-          value
+          value,
+          this.options.lipSyncWeight
         )
       }
     }
