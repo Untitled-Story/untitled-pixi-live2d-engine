@@ -64,7 +64,7 @@ export const jsonToSettings: Middleware<Live2DFactoryContext> = async (context, 
     throw new TypeError(
       [
         'Unknown settings format: no Live2D runtimes registered.',
-        'Import a runtime module before loading models (e.g. "@/cubism" for Cubism 3/4/5, "@/cubism-legacy" for Cubism 2).',
+        'Import a published runtime entry before loading models (e.g. "<package>/cubism" for Cubism 3/4/5, "<package>/cubism-legacy" for Cubism 2).',
         url ? `Settings URL: ${url}` : undefined
       ]
         .filter(Boolean)
