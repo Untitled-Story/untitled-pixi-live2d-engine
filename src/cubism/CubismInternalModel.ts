@@ -23,6 +23,41 @@ import type { Mutable } from '@/types/helpers'
 import { clamp } from '@/utils'
 
 const tempMatrix = new CubismMatrix44()
+const DEFAULT_MASKS_PER_RENDER_TEXTURE = 36
+const MASKS_PER_RENDER_TEXTURE = 32
+
+function getRequiredMaskRenderTextureCount(model: CubismModel): number {
+  if (!model.isUsingMasking()) {
+    return 1
+  }
+
+  const maskCounts = model.getDrawableMaskCounts()
+  const masks = model.getDrawableMasks()
+  const uniqueMaskSets = new Set<string>()
+
+  for (let i = 0; i < model.getDrawableCount(); i++) {
+    const maskCount = maskCounts[i]
+
+    if (!maskCount || maskCount <= 0) {
+      continue
+    }
+
+    const maskSet = Array.from(masks[i] ?? [])
+      .slice(0, maskCount)
+      .sort((a, b) => a - b)
+      .join(',')
+
+    uniqueMaskSets.add(maskSet)
+  }
+
+  const clippingContextCount = uniqueMaskSets.size
+
+  if (clippingContextCount <= DEFAULT_MASKS_PER_RENDER_TEXTURE) {
+    return 1
+  }
+
+  return Math.ceil(clippingContextCount / MASKS_PER_RENDER_TEXTURE)
+}
 
 // noinspection JSUnusedGlobalSymbols
 export class CubismInternalModel extends InternalModel {
@@ -148,7 +183,7 @@ export class CubismInternalModel extends InternalModel {
 
     this.breath.setParameters(breathParams)
 
-    this.renderer.initialize(this.coreModel)
+    this.renderer.initialize(this.coreModel, getRequiredMaskRenderTextureCount(this.coreModel))
     this.renderer.setIsPremultipliedAlpha(true)
   }
 

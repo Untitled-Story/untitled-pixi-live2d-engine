@@ -1,4 +1,5 @@
 import './check-runtime'
+import './factory'
 
 export * from './CubismExpressionManager'
 export * from './CubismInternalModel'

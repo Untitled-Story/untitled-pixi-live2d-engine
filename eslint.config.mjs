@@ -22,6 +22,7 @@ export default defineConfig([
     '**/dist',
     '**/coverage',
     '**/test.build',
+    'overrides',
     'types',
     '**/Core',
     '!Core/README.md',

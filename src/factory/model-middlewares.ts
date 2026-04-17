@@ -53,7 +53,48 @@ export const jsonToSettings: Middleware<Live2DFactoryContext> = async (context, 
     }
   }
 
-  throw new TypeError('Unknown settings format.')
+  const url =
+    context.source && typeof (context.source as { url?: unknown }).url === 'string'
+      ? (context.source as { url: string }).url
+      : undefined
+
+  const runtimeVersions = Live2DFactory.runtimes.map((r) => r.version).join(', ')
+
+  if (Live2DFactory.runtimes.length === 0) {
+    throw new TypeError(
+      [
+        'Unknown settings format: no Live2D runtimes registered.',
+        'Import a runtime module before loading models (e.g. "@/cubism" for Cubism 3/4/5, "@/cubism-legacy" for Cubism 2).',
+        url ? `Settings URL: ${url}` : undefined
+      ]
+        .filter(Boolean)
+        .join('\n')
+    )
+  }
+
+  const topLevelKeys = (() => {
+    try {
+      if (!context.source || typeof context.source !== 'object' || Array.isArray(context.source)) {
+        return undefined
+      }
+      return Object.keys(context.source as Record<string, unknown>)
+        .slice(0, 30)
+        .join(', ')
+    } catch {
+      return undefined
+    }
+  })()
+
+  throw new TypeError(
+    [
+      'Unknown settings format: no matching runtime found for the loaded settings JSON.',
+      runtimeVersions ? `Registered runtimes (versions): ${runtimeVersions}` : undefined,
+      topLevelKeys ? `Settings JSON keys: ${topLevelKeys}` : undefined,
+      url ? `Settings URL: ${url}` : undefined
+    ]
+      .filter(Boolean)
+      .join('\n')
+  )
 }
 
 export const waitUntilReady: Middleware<Live2DFactoryContext> = (context, next) => {

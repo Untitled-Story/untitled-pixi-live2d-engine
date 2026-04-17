@@ -1,3 +1,4 @@
+import './factory'
 import { logger, MBToByte } from '@/utils'
 import type { Option } from '@cubism/live2dcubismframework'
 import { CubismFramework, LogLevel } from '@cubism/live2dcubismframework'
