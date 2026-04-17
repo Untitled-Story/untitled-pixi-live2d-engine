@@ -1,7 +1,7 @@
 {
   "name": "untitled-pixi-live2d-engine",
-  "version": "1.0.1",
-  "description": "PixiJS v8 Live2D Engine | Supports Cubism 25 SDK | Lip-sync & Parallel Motion",
+  "version": "1.0.2",
+  "description": "PixiJS v8 Live2D Engine | Supports Cubism 2-5 SDK | Lip-sync & Parallel Motion",
   "packageManager": "pnpm@10.26.2",
   "main": "dist/index.js",
   "type": "module",
@@ -44,8 +44,8 @@
     "url": "https://github.com/Untitled-Story/untitled-pixi-live2d-engine.git"
   },
   "author": {
-    "name": "GuangChen2333",
-    "email": "guangchen23333@gmail.com"
+    "name": "GuangChen233",
+    "email": "guangchen233@untitled-story.org"
   },
   "license": "MIT",
   "scripts": {
