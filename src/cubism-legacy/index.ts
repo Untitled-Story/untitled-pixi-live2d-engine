@@ -1,5 +1,6 @@
 import './check-runtime'
 import './patch-motion'
+import './factory'
 
 export * from './CubismLegacyExpressionManager'
 export * from './CubismLegacyInternalModel'
