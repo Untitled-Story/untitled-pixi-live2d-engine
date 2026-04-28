@@ -25,6 +25,20 @@ import { clamp } from '@/utils'
 const tempMatrix = new CubismMatrix44()
 const DEFAULT_MASKS_PER_RENDER_TEXTURE = 36
 const MASKS_PER_RENDER_TEXTURE = 32
+const HIGH_PRECISION_MASK_UNIQUE_MASK_SET_THRESHOLD = 16
+const HIGH_PRECISION_MASK_MASKED_DRAWABLE_THRESHOLD = 64
+const HIGH_PRECISION_MASK_MAX_MASKS_PER_DRAWABLE_THRESHOLD = 3
+const HIGH_PRECISION_MASK_MASKED_VERTEX_THRESHOLD = 4096
+const HIGH_PRECISION_MASK_VERTEX_RATIO_THRESHOLD = 0.5
+const HIGH_PRECISION_MASK_VERTEX_RATIO_DRAWABLE_THRESHOLD = 24
+
+type MaskProfile = {
+  maskedDrawableCount: number
+  uniqueMaskSetCount: number
+  maxMasksPerDrawable: number
+  maskedVertexCount: number
+  totalVertexCount: number
+}
 
 function getRequiredMaskRenderTextureCount(model: CubismModel): number {
   if (!model.isUsingMasking()) {
@@ -57,6 +71,78 @@ function getRequiredMaskRenderTextureCount(model: CubismModel): number {
   }
 
   return Math.ceil(clippingContextCount / MASKS_PER_RENDER_TEXTURE)
+}
+
+function getMaskProfile(model: CubismModel): MaskProfile {
+  const maskCounts = model.getDrawableMaskCounts()
+  const masks = model.getDrawableMasks()
+  const uniqueMaskSets = new Set<string>()
+  const drawableCount = model.getDrawableCount()
+
+  let maskedDrawableCount = 0
+  let maxMasksPerDrawable = 0
+  let maskedVertexCount = 0
+  let totalVertexCount = 0
+
+  for (let i = 0; i < drawableCount; i++) {
+    const vertexCount = model.getDrawableVertexCount(i)
+    const maskCount = maskCounts[i] ?? 0
+
+    totalVertexCount += vertexCount
+
+    if (maskCount <= 0) {
+      continue
+    }
+
+    maskedDrawableCount++
+    maskedVertexCount += vertexCount
+    maxMasksPerDrawable = Math.max(maxMasksPerDrawable, maskCount)
+
+    const maskSet = Array.from(masks[i] ?? [])
+      .slice(0, maskCount)
+      .sort((a, b) => a - b)
+      .join(',')
+
+    uniqueMaskSets.add(maskSet)
+  }
+
+  return {
+    maskedDrawableCount,
+    uniqueMaskSetCount: uniqueMaskSets.size,
+    maxMasksPerDrawable,
+    maskedVertexCount,
+    totalVertexCount
+  }
+}
+
+function shouldUseHighPrecisionMask(model: CubismModel): boolean {
+  if (!model.isUsingMasking()) {
+    return false
+  }
+
+  const profile = getMaskProfile(model)
+  const maskedVertexRatio =
+    profile.totalVertexCount > 0 ? profile.maskedVertexCount / profile.totalVertexCount : 0
+
+  return (
+    profile.uniqueMaskSetCount > HIGH_PRECISION_MASK_UNIQUE_MASK_SET_THRESHOLD ||
+    profile.maskedDrawableCount > HIGH_PRECISION_MASK_MASKED_DRAWABLE_THRESHOLD ||
+    profile.maxMasksPerDrawable >= HIGH_PRECISION_MASK_MAX_MASKS_PER_DRAWABLE_THRESHOLD ||
+    profile.maskedVertexCount > HIGH_PRECISION_MASK_MASKED_VERTEX_THRESHOLD ||
+    (maskedVertexRatio >= HIGH_PRECISION_MASK_VERTEX_RATIO_THRESHOLD &&
+      profile.maskedDrawableCount > HIGH_PRECISION_MASK_VERTEX_RATIO_DRAWABLE_THRESHOLD)
+  )
+}
+
+function resolveHighPrecisionMaskOption(
+  model: CubismModel,
+  option: InternalModelOptions['useHighPrecisionMask']
+): boolean {
+  if (typeof option === 'boolean') {
+    return option
+  }
+
+  return shouldUseHighPrecisionMask(model)
 }
 
 // noinspection JSUnusedGlobalSymbols
@@ -184,6 +270,9 @@ export class CubismInternalModel extends InternalModel {
     this.breath.setParameters(breathParams)
 
     this.renderer.initialize(this.coreModel, getRequiredMaskRenderTextureCount(this.coreModel))
+    this.renderer.useHighPrecisionMask(
+      resolveHighPrecisionMaskOption(this.coreModel, this.options.useHighPrecisionMask)
+    )
     this.renderer.setIsPremultipliedAlpha(true)
   }
 

@@ -79,6 +79,12 @@ export class CubismLegacyInternalModel extends InternalModel {
       { breathDepth: 1, lipSyncGain: 1.5, lipSyncWeight: 0.4 },
       options
     )
+    if (options?.useHighPrecisionMask !== undefined && options.useHighPrecisionMask !== false) {
+      logger.warn(
+        'CubismLegacyInternalModel',
+        '`useHighPrecisionMask` is only supported by Cubism 3/4/5 models and will be ignored for Cubism 2 models.'
+      )
+    }
     this.motionManager = new CubismLegacyMotionManager(this)
     this.parallelMotionManager = []
     this.eyeBlink = new Live2DEyeBlink(coreModel)
