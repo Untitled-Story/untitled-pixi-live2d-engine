@@ -100,6 +100,13 @@ export interface InternalModelOptions extends MotionManagerOptions {
    * @default 0.4
    */
   lipSyncWeight?: number
+
+  /**
+   * Whether to use Cubism's high precision clipping mask rendering.
+   * Only supported by Cubism 3/4/5 models.
+   * @default 'auto'
+   */
+  useHighPrecisionMask?: boolean | 'auto'
 }
 
 const tempBounds: Bounds = { x: 0, y: 0, width: 0, height: 0 }
