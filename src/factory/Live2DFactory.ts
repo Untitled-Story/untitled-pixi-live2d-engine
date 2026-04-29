@@ -17,6 +17,7 @@ import { runMiddlewares } from '@/utils/middleware'
 import type { JSONObject } from '@/types/helpers'
 import { FileLoader } from './FileLoader'
 import { ZipLoader } from './ZipLoader'
+import type { Live2DTextureSourceOptions } from './texture'
 
 export interface Live2DFactoryOptions extends Live2DModelOptions {
   /**
@@ -49,6 +50,15 @@ export interface Live2DFactoryOptions extends Live2DModelOptions {
    * @default false
    */
   checkMotionConsistency?: boolean
+
+  /**
+   * Texture loading and atlas LOD options.
+   *
+   * See {@link Live2DTextureLODOptions} for the available `lod` strategies.
+   *
+   * @default { lod: 'full' }
+   */
+  textureOptions?: Live2DTextureSourceOptions
 }
 
 /**

@@ -7,26 +7,51 @@ import type {
 import { VOLUME } from '@/cubism-common/SoundManager'
 import type { Live2DFactoryOptions } from '@/factory/Live2DFactory'
 import { Live2DFactory } from '@/factory/Live2DFactory'
-import type {
-  GlRenderingContext,
-  InstructionSet,
-  RenderLayer,
-  Renderer,
+import type { Live2DTextureSourceOptions } from '@/factory/texture'
+import { getTextureLODFilter, getTextureLODPlan } from '@/factory/texture-lod'
+import type { GlRenderingContext, InstructionSet, RenderLayer, Renderer, Ticker } from 'pixi.js'
+import {
+  Bounds,
+  CanvasSource,
+  Container,
+  DOMAdapter,
+  Matrix,
+  ObservablePoint,
+  Point,
   Texture,
-  Ticker
+  WebGLRenderer
 } from 'pixi.js'
-import { Bounds, Container, Matrix, ObservablePoint, Point, WebGLRenderer } from 'pixi.js'
 import { Automator, type AutomatorOptions } from './Automator'
 import { Live2DTransform } from './Live2DTransform'
 import type { JSONObject } from './types/helpers'
 
-export interface Live2DModelOptions extends InternalModelOptions, AutomatorOptions {}
+export interface Live2DModelOptions extends InternalModelOptions, AutomatorOptions {
+  /**
+   * Texture loading and atlas LOD options for this model.
+   *
+   * See {@link Live2DTextureLODOptions} for the available `lod` strategies.
+   *
+   * @default { lod: 'full' }
+   */
+  textureOptions?: Live2DTextureSourceOptions
+}
 
 const tempPoint = new Point()
 const tempMatrix = new Matrix()
 const tempWorldMatrix = new Matrix()
 const tempDrawableBounds = { x: 0, y: 0, width: 0, height: 0 }
 const tempModelBounds = new Bounds()
+
+type Live2DTextureLODState = {
+  source: Texture
+  level: number
+  texture: Texture
+}
+
+type Live2DTextureLODFailures = {
+  source: Texture
+  levels: Set<number>
+}
 
 export type Live2DConstructor = { new (options?: Live2DModelOptions): Live2DModel }
 
@@ -69,6 +94,79 @@ function ensureLive2DPipe(renderer: Renderer): void {
   if (!r.renderPipes.live2d) {
     r.renderPipes.live2d = new Live2DPipe(renderer)
   }
+}
+
+function getMatrixMaxScale(matrix: Matrix): number {
+  return Math.max(Math.hypot(matrix.a, matrix.b), Math.hypot(matrix.c, matrix.d))
+}
+
+function isDrawableTextureResource(resource: unknown): resource is CanvasImageSource {
+  if (!resource || typeof resource !== 'object') {
+    return false
+  }
+
+  const { width, height } = resource as { width?: unknown; height?: unknown }
+
+  return typeof width === 'number' && width > 0 && typeof height === 'number' && height > 0
+}
+
+function createTextureLODTexture(
+  sourceTexture: Texture,
+  level: number,
+  width: number,
+  height: number,
+  filter: Live2DTextureSourceOptions['lodFilter']
+): Texture | undefined {
+  const resource: unknown = sourceTexture.source.resource
+
+  if (!isDrawableTextureResource(resource)) {
+    return undefined
+  }
+
+  const canvas = DOMAdapter.get().createCanvas(width, height)
+  const context = canvas.getContext('2d') as CanvasRenderingContext2D | null
+
+  if (!context) {
+    return undefined
+  }
+
+  try {
+    context.clearRect(0, 0, width, height)
+    context.imageSmoothingEnabled = filter !== 'nearest'
+
+    if ('imageSmoothingQuality' in context && filter !== 'nearest') {
+      context.imageSmoothingQuality = 'high'
+    }
+
+    context.drawImage(
+      resource,
+      0,
+      0,
+      sourceTexture.source.pixelWidth,
+      sourceTexture.source.pixelHeight,
+      0,
+      0,
+      width,
+      height
+    )
+  } catch {
+    return undefined
+  }
+
+  const label = `${sourceTexture.label ?? sourceTexture.source.label ?? 'Live2DTexture'} LOD ${level}`
+
+  return new Texture({
+    label,
+    source: new CanvasSource({
+      resource: canvas,
+      width,
+      height,
+      resolution: 1,
+      scaleMode: getTextureLODFilter(filter),
+      autoGenerateMipmaps: false,
+      label
+    })
+  })
 }
 
 // noinspection JSUnusedGlobalSymbols
@@ -172,6 +270,10 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    * @type {Texture[]}
    */
   textures: Texture[] = []
+
+  private readonly textureOptions?: Live2DTextureSourceOptions
+  private readonly textureLODStates: (Live2DTextureLODState | undefined)[] = []
+  private readonly textureLODFailures: (Live2DTextureLODFailures | undefined)[] = []
 
   /** @override
    * The Live2DTransform instance for this model.
@@ -302,6 +404,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    */
   constructor(options?: Live2DModelOptions) {
     super()
+
+    this.textureOptions = options?.textureOptions
 
     this.anchor = new ObservablePoint(
       {
@@ -711,6 +815,111 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     // don't call `this.internalModel.update()` here, because it requires WebGL context
   }
 
+  private resolveTextureForRender(
+    index: number,
+    texture: Texture,
+    effectiveScale: number
+  ): Texture {
+    const plan = getTextureLODPlan({
+      ...this.textureOptions,
+      effectiveScale,
+      textureWidth: texture.source.pixelWidth,
+      textureHeight: texture.source.pixelHeight
+    })
+
+    if (!plan) {
+      return texture
+    }
+
+    const failure = this.textureLODFailures[index]
+
+    if (failure?.source === texture && failure.levels.has(plan.level)) {
+      return texture
+    }
+
+    const existing = this.textureLODStates[index]
+
+    if (
+      existing?.source === texture &&
+      existing.level === plan.level &&
+      !existing.texture.destroyed
+    ) {
+      return existing.texture
+    }
+
+    this.destroyTextureLODState(index)
+
+    const lodTexture = createTextureLODTexture(
+      texture,
+      plan.level,
+      plan.width,
+      plan.height,
+      this.textureOptions?.lodFilter
+    )
+
+    if (!lodTexture) {
+      this.markTextureLODFailure(index, texture, plan.level)
+      return texture
+    }
+
+    this.textureLODStates[index] = {
+      source: texture,
+      level: plan.level,
+      texture: lodTexture
+    }
+
+    return lodTexture
+  }
+
+  private markTextureLODFailure(index: number, texture: Texture, level: number): void {
+    let failure = this.textureLODFailures[index]
+
+    if (failure?.source !== texture) {
+      failure = { source: texture, levels: new Set<number>() }
+      this.textureLODFailures[index] = failure
+    }
+
+    failure.levels.add(level)
+  }
+
+  private destroyTextureLODState(index: number): void {
+    const state = this.textureLODStates[index]
+
+    if (!state) {
+      return
+    }
+
+    state.texture.destroy(true)
+    this.textureLODStates[index] = undefined
+  }
+
+  private destroyTextureLODStates(): void {
+    for (let i = 0; i < this.textureLODStates.length; i++) {
+      this.destroyTextureLODState(i)
+    }
+
+    this.textureLODFailures.length = 0
+  }
+
+  private uploadTextureForRender(
+    renderer: WebGLRenderer,
+    texture: Texture,
+    shouldUpdateTexture: boolean
+  ): void {
+    // getGlSource() cannot be used here, as it will trigger PixiJS's material upload
+    // before Cubism's expected UNPACK_FLIP_Y state is applied.
+    const hasGlSource = Boolean(texture.source._gpuData[renderer.uid])
+
+    if (shouldUpdateTexture || !hasGlSource) {
+      renderer.gl.pixelStorei(
+        WebGLRenderingContext.UNPACK_FLIP_Y_WEBGL,
+        this.internalModel.textureFlipY
+      )
+
+      renderer.texture.bind(texture, 0)
+    }
+  }
+
   /**
    * Renders the Live2DModel to the renderer.
    * @param renderer - The PixiJS Renderer instance.
@@ -733,21 +942,31 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       shouldUpdateTexture = true
     }
 
+    const { projectionMatrix, offset, worldTransformMatrix } =
+      renderer.globalUniforms.globalUniformData
+    const adjustedWorld = tempWorldMatrix.copyFrom(worldTransformMatrix).append(this.groupTransform)
+    const effectiveScale = getMatrixMaxScale(adjustedWorld) * renderer.resolution
+
     for (let i = 0; i < this.textures.length; i++) {
-      const texture = this.textures[i]!
+      const originalTexture = this.textures[i]!
+      let texture = this.resolveTextureForRender(i, originalTexture, effectiveScale)
 
-      // getGlSource() cannot be used, as it will trigger PixiJS’s material upload
-      // and cause rendering/display errors.
-      const hasGlSource = Boolean(texture.source._gpuData[renderer.uid])
+      try {
+        this.uploadTextureForRender(renderer, texture, shouldUpdateTexture)
+      } catch {
+        if (texture === originalTexture) {
+          throw new Error('Failed to upload Live2D texture.')
+        }
 
-      if (shouldUpdateTexture || !hasGlSource) {
-        // Ensure UNPACK_FLIP_Y is set before Pixi uploads the source to the GPU.
-        renderer.gl.pixelStorei(
-          WebGLRenderingContext.UNPACK_FLIP_Y_WEBGL,
-          this.internalModel.textureFlipY
-        )
+        const state = this.textureLODStates[i]
 
-        renderer.texture.bind(texture, 0)
+        if (state?.texture === texture) {
+          this.markTextureLODFailure(i, originalTexture, state.level)
+          this.destroyTextureLODState(i)
+        }
+
+        texture = originalTexture
+        this.uploadTextureForRender(renderer, texture, shouldUpdateTexture)
       }
 
       this.internalModel.bindTexture(i, renderer.texture.getGlSource(texture.source).texture)
@@ -770,9 +989,6 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     if (frameDelta) {
       this.internalModel.update(frameDelta, this.elapsedTime)
     }
-
-    const { projectionMatrix, offset } = renderer.globalUniforms.globalUniformData
-    const adjustedWorld = tempWorldMatrix.copyFrom(this.worldTransform)
 
     adjustedWorld.tx -= offset?.x ?? 0
     adjustedWorld.ty -= offset?.y ?? 0
@@ -819,6 +1035,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    */
   destroy(options?: { children?: boolean; texture?: boolean; baseTexture?: boolean }): void {
     this.emit('destroy')
+
+    this.destroyTextureLODStates()
 
     if (options?.texture) {
       this.textures.forEach((texture) => texture.destroy(options.baseTexture))
