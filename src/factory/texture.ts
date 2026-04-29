@@ -1,10 +1,25 @@
 import type { Texture } from 'pixi.js'
 import { Assets, loadTextures } from 'pixi.js'
+import type { Live2DTextureLODOptions } from './texture-lod'
+import { getTextureLODMode } from './texture-lod'
 
-export function createTexture(
-  url: string,
-  options: { crossOrigin?: string; preferCreateImageBitmap?: boolean } = {}
-): Promise<Texture> {
+/**
+ * Texture loading options accepted by Live2D model atlas loading.
+ */
+export interface Live2DTextureSourceOptions extends Live2DTextureLODOptions {
+  /**
+   * Forces Pixi to load texture resources without createImageBitmap.
+   * Cubism 2 textures use this because their WebGL upload path depends on HTML image sources.
+   * @default undefined
+   */
+  preferCreateImageBitmap?: boolean
+}
+
+export interface CreateTextureOptions extends Live2DTextureSourceOptions {
+  crossOrigin?: string
+}
+
+export function createTexture(url: string, options: CreateTextureOptions = {}): Promise<Texture> {
   const config = loadTextures.config
   const previousCrossOrigin = config?.crossOrigin
   const previousPreferCreateImageBitmap = config?.preferCreateImageBitmap
@@ -18,7 +33,12 @@ export function createTexture(
     config.preferWorkers = false
   }
 
-  return Assets.load<Texture>(url)
+  return Assets.load<Texture>({
+    src: url,
+    data: {
+      autoGenerateMipmaps: getTextureLODMode(options.lod) === 'full'
+    }
+  })
     .catch((error: unknown) => {
       if (error instanceof Error) {
         throw error

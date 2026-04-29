@@ -24,6 +24,7 @@ export default defineConfig([
     '**/test.build',
     'overrides',
     'types',
+    'tests/**',
     '**/Core',
     '!Core/README.md',
     '!Core/live2d.d.ts'

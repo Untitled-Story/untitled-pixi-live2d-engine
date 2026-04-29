@@ -3,7 +3,7 @@ import { CubismLegacyModelSettings } from '@/cubism-legacy/CubismLegacyModelSett
 import type { Live2DFactoryContext } from '@/factory/Live2DFactory'
 import { Live2DFactory } from '@/factory/Live2DFactory'
 import { Live2DLoader } from '@/factory/Live2DLoader'
-import { createTexture } from '@/factory/texture'
+import { createTexture, type CreateTextureOptions } from '@/factory/texture'
 import { logger } from '@/utils'
 import type { Middleware } from '@/utils/middleware'
 import type { JSONObject } from '@/types/helpers'
@@ -181,8 +181,9 @@ export const setupOptionals: Middleware<Live2DFactoryContext> = async (context, 
 export const setupEssentials: Middleware<Live2DFactoryContext> = async (context, next) => {
   if (context.settings) {
     const live2DModel = context.live2dModel
-    const textureOptions: { crossOrigin?: string; preferCreateImageBitmap?: boolean } = {
-      crossOrigin: context.options.crossOrigin
+    const textureOptions: CreateTextureOptions = {
+      crossOrigin: context.options.crossOrigin,
+      ...context.options.textureOptions
     }
 
     if (context.settings instanceof CubismLegacyModelSettings) {
