@@ -2,51 +2,88 @@
 
 ![NPM Version](https://img.shields.io/npm/v/untitled-pixi-live2d-engine?style=flat-square&label=version)
 ![Cubism version](https://img.shields.io/badge/Cubism-2/3/4/5-ff69b4?style=flat-square)
+![PixiJS](https://img.shields.io/badge/PixiJS-v8-e72264?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square)
 
 [**English**](README.md) | [**简体中文**](README-ZH.md) | **日本語 (現在)**
 
-PixiJS v8 向けの Live2D 描画・制御プラグイン。
+**[PixiJS v8](https://pixijs.com/)** 向けの Live2D レンダリングエンジン。**Cubism 2 / 3 / 4 / 5** モデルに対応しています。
 
-本プロジェクトは、Web 上で Live2D モデルを読み込み、描画し、操作するための**統一的で簡潔、かつ高い保守性**を備えた API を提供することを目的としています。  
-公式 Live2D SDK と比べて、機能を損なわずに利用の複雑さを大幅に低減し、安定性と長期的な保守性を最適化しています。
+本プロジェクトは [pixi-live2d-display-mulmotion](https://github.com/Sekai-World/pixi-live2d-display) を大幅にリファクタリングし、PixiJS v8 と Cubism 5 SDK に対応させたものです。API 設計・レンダリングパイプライン・型安全性を改善しています。
 
-本プロジェクトは [pixi-live2d-display-mulmotion](https://github.com/Sekai-World/pixi-live2d-display) 分岐を基にしており、  
-**PixiJS v8 と Live2D Cubism 5.4 SDK に完全対応**しています。さらに、以下を提供します：
+## 主な特徴
 
-- 実用的な API の追加
-- TypeScript の型安全性の強化
-- 拡張性と保守性を高める内部構成の最適化
+### PixiJS v8 ネイティブレンダリング
 
-## 特長
+カスタム **Render Pipe** により PixiJS v8 のレンダリングアーキテクチャに統合：
 
-- Live2D モデルの**全バージョン**に対応（Cubism 2 / 3 / 4 / 5）
-- `PIXI.RenderTexture` と `PIXI.Filter` に対応
-- **PixiJS 風の変換 API** を提供
-  - `position`
-  - `scale`
-  - `rotation`
-  - `skew`
-  - `anchor`
+- `Filter` および `RenderTexture` に対応
+- **zIndex ソート**・**ブレンドモード**に参加
+- レンダラーの解像度を継承し、フィルター適用時のぼやけを防止
 
-- インタラクション機能を内蔵
-  - マウス追従
-  - ヒットエリア検出
+### Cubism 2–5 対応
 
-- 公式 SDK よりも**モーションの予約・スケジューリングを改善**
-- 厳密で完全な **TypeScript 型定義**
-- リアルタイムのリップシンク対応
-- **モーションの並列再生**
-- **最終フレームで停止**する再生に対応
+**Cubism 2.1（Legacy）** と **Cubism 5（Modern）** の両方に対応。バンドルエントリを切り替えることで、必要なランタイムのみを読み込めます。
+
+### テクスチャ LOD
+
+大きなテクスチャアトラス（4096px 以上）に対して、3 つの LOD 戦略を提供：
+
+- **`full`**（デフォルト）：完全な mipmap チェーンを生成
+- **`single-auto`**：画面上のモデルの実際のサイズに応じて低解像度テクスチャを生成し、VRAM 使用量を削減
+- **`false`**：元のテクスチャのみを使用
+
+```ts
+const model = await Live2DModel.from('model.json', {
+  textureOptions: { lod: 'single-auto' }
+})
+```
+
+### 高精度マスクの自動検出
+
+複雑なモデル（多数のマスク Drawable、高い頂点密度など）では、マスク精度不足による描画の乱れが生じることがあります。エンジンがモデル構造を自動的に分析し、必要に応じて高精度マスクを有効にします。デフォルトで有効であり、手動での制御も可能です。
+
+### 並列モーション・最終フレーム固定
+
+- **並列再生**：複数のモーショングループを同時に駆動（上半身・下半身の独立アニメーションなど）
+- **最終フレーム固定**：モーションを最終フレームで停止させる（立ち絵の切り替え、ポーズ固定など）
+
+```ts
+// 並列再生
+model.parallelMotion([
+  { group: 'upper_body', index: 0 },
+  { group: 'lower_body', index: 1 }
+])
+
+// 最終フレーム固定
+await model.parallelLastFrame([
+  { group: 'arm', index: 0 },
+  { group: 'expression', index: 2 }
+])
+```
+
+## 機能一覧
+
+- **Cubism 2 / 3 / 4 / 5** モデル対応
+- PixiJS v8 ネイティブレンダリングパイプライン（Filter / RenderTexture / Render Pipe）
+- テクスチャ LOD・高精度マスク自動検出
+- 並列モーション再生 / 最終フレーム固定
+- リアルタイムリップシンク
+- PixiJS 形式のトランスフォーム：`position` / `scale` / `rotation` / `skew` / `anchor`
+- マウス追従 / ヒットエリア検出
+- 改善されたモーション予約・優先度スケジューリング
+- 厳密な TypeScript 型定義
+- Cubism ワークメモリサイズの設定
 
 ## 要件
 
-- **PixiJS**: `8.x`
-- **Cubism runtime**: `2.1` または `5`
-- **ブラウザ**: `WebGL` と `ES6` をサポート
+- **PixiJS**：`8.x`
+- **Cubism ランタイム**：`2.1` または `5`
+- **ブラウザ**：`WebGL` と `ES6` をサポートすること
 
 ## インストール
 
-### npm / pnpm を使用
+### npm / pnpm
 
 ```bash
 pnpm add untitled-pixi-live2d-engine
@@ -70,63 +107,31 @@ import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism'
 <script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
 ```
 
-## Cubism ランタイムの概要
+## Cubism ランタイム
 
-このプロジェクトは Live2D モデルの**全バージョン**に対応しており、Cubism の構成で次のように分類されます：
+Live2D モデルは Cubism アーキテクチャにより 2 種類に分かれ、それぞれ異なる外部ランタイムが必要です：
 
-- **Cubism Legacy**: Cubism 2.1
-- **Cubism Modern**: Cubism 3 / 4 / 5
+| 分類 | モデルバージョン | 外部ランタイム | バンドルエントリ |
+|---|---|---|---|
+| **Cubism Legacy** | Cubism 2.1 | `live2d.min.js` | `cubism-legacy.js` |
+| **Cubism Modern** | Cubism 3 / 4 / 5 | `live2dcubismcore.min.js` | `cubism.js` |
+| **両方を使用** | — | 上記の両方 | `index.js` |
 
-使用するモデルに合わせて適切なランタイムエントリを選択してください。
+### 外部ランタイムの入手
 
-### Cubism Legacy と Cubism Modern を併用する場合
+**Cubism Legacy** — `live2d.min.js`
 
-#### バンドルエントリ
+公式配布は [2019 年 9 月 4 日](https://help.live2d.com/en/other/other_20/) に終了。以下から入手できます：
+- [GitHub](https://github.com/dylanNew/live2d/tree/master/webgl/Live2D/lib)
+- [jsDelivr CDN](https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js)
 
-```text
-index.js
-```
+**Cubism Modern** — `live2dcubismcore.min.js`
 
-> Cubism 2 と Cubism 3+ の両方を読み込む場合は、この統合エントリを使用します。
-
-### Cubism Legacy のみ（Cubism 2.1）
-
-#### 前提条件
-
-`live2d.min.js` を手動で読み込む必要があります：
-
-- 公式配布は 2019 年 9 月 4 日に終了
-  [September 4, 2019](https://help.live2d.com/en/other/other_20/)
-- 入手先：
-  - GitHub:
-    [https://github.com/dylanNew/live2d/tree/master/webgl/Live2D/lib](https://github.com/dylanNew/live2d/tree/master/webgl/Live2D/lib)
-  - jsDelivr CDN:
-    [https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js](https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js)
-
-#### バンドルエントリ
-
-```text
-cubism-legacy.js
-```
-
-### Cubism Modern のみ（Cubism 3 / 4 / 5）
-
-#### 前提条件
-
-`live2dcubismcore.min.js` を読み込む必要があります：
-
-- 公式 **Cubism 5 SDK** からダウンロード可能
-  [https://www.live2d.com/download/cubism-sdk/download-web/](https://www.live2d.com/download/cubism-sdk/download-web/)
-
-#### バンドルエントリ
-
-```text
-cubism.js
-```
+公式 [Cubism 5 SDK for Web](https://www.live2d.com/download/cubism-sdk/download-web/) からダウンロードしてください。
 
 ## クイックスタート
 
-以下は **PixiJS v8** をベースにした例で、Cubism Legacy と Cubism Modern の両方に対応します。
+以下は PixiJS v8 を使用した例で、Cubism Legacy と Cubism Modern の両方に対応します。
 
 ```ts
 import { Application } from 'pixi.js'
@@ -142,11 +147,9 @@ await app.init({
 
 document.body.appendChild(app.canvas)
 
-// Cubism Modern のワークメモリを設定（任意、デフォルトは 16MB）
-// 複数モデルや高精細モデルを読み込む場合に増やしてください
-// configureCubismSDK({
-//   memorySizeMB: 32
-// })
+// Cubism Modern のワークメモリを設定（任意、デフォルト 16MB）
+// 複数モデルや複雑なモデルを読み込む場合は増やしてください
+// configureCubismSDK({ memorySizeMB: 32 })
 
 const model = await Live2DModel.from('model/model3.json')
 model.anchor.set(0.5)
@@ -155,7 +158,7 @@ model.position.set(app.screen.width / 2, app.screen.height / 2)
 app.stage.addChild(model)
 ```
 
-## よく使う API 例
+## API 例
 
 ### モーション再生
 
@@ -163,7 +166,7 @@ app.stage.addChild(model)
 model.motion('group', index)
 ```
 
-### モーションの並列再生
+### 並列モーション
 
 ```ts
 model.parallelMotion([
@@ -172,7 +175,7 @@ model.parallelMotion([
 ])
 ```
 
-### 最終フレームで停止
+### 最終フレーム固定
 
 **単一モーション：**
 
@@ -201,13 +204,16 @@ model.speak('audio_file_url')
 model.expression('id')
 ```
 
-より高度な使い方は以下を参照してください：  
-[pixi-live2d-display-lipsync](https://github.com/RaSan147/pixi-live2d-display)
-
 ## FAQ
 
-### Q: 複数モデルを読み込むと更新が止まるのはなぜですか？
+### Q: 複数モデルを読み込むと更新が止まる？
 
-**Cubism Modern** ランタイムを使用している場合、`configureCubismSDK` で設定するワークメモリが不足している可能性があります。
+Cubism Modern ランタイム使用時、ワークメモリ不足が原因であることが多いです。初期化時に `memorySizeMB` を増やしてください（最小 16MB）：
 
-初期化時に `memorySizeMB` を増やしてみてください（最小値: 16MB）。
+```ts
+configureCubismSDK({ memorySizeMB: 32 })
+```
+
+## ライセンス
+
+[MIT](LICENSE)

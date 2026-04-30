@@ -2,47 +2,84 @@
 
 ![NPM Version](https://img.shields.io/npm/v/untitled-pixi-live2d-engine?style=flat-square&label=version)
 ![Cubism version](https://img.shields.io/badge/Cubism-2/3/4/5-ff69b4?style=flat-square)
+![PixiJS](https://img.shields.io/badge/PixiJS-v8-e72264?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square)
 
 [**English**](README.md) | **简体中文 (当前)** | [**日本語**](README-JA.md)
 
-一款面向 **[PixiJS v8](https://pixijs.com/)** 的 Live2D 显示与控制插件。
+基于 **[PixiJS v8](https://pixijs.com/)** 的 Live2D 渲染引擎，支持 **Cubism 2 / 3 / 4 / 5** 模型。
 
-本项目旨在为 Web 端 Live2D 模型的加载、渲染与交互提供 **统一、简洁且高可维护性** 的 API。
-相较于官方 Live2D SDK，本库在保持功能完整的同时，显著降低了使用复杂度，并在稳定性与长期维护性上进行了优化。
+本项目基于 [pixi-live2d-display-mulmotion](https://github.com/Sekai-World/pixi-live2d-display) 大幅重构，适配 PixiJS v8 与 Cubism 5 SDK，并改进了 API 设计、渲染管线与类型安全。
 
-本项目基于 [pixi-live2d-display-mulmotion](https://github.com/Sekai-World/pixi-live2d-display) 分支开发，**完全适配 PixiJS v8 与 Live2D Cubism 5.4 SDK**，
-并在此基础上：
+## 主要特性
 
-- 增加了多项实用 API
-- 强化了 TypeScript 类型安全
-- 优化了内部结构，使其更易扩展与维护
+### PixiJS v8 原生渲染
 
-## 功能特性
+通过自定义 **Render Pipe** 接入 PixiJS v8 渲染架构：
 
-- 支持 **所有版本** 的 Live2D 模型（Cubism 2 / 3 / 4 / 5）
-- 兼容 `PIXI.RenderTexture`（渲染纹理）与 `PIXI.Filter`（滤镜）
-- 提供完整的 **PixiJS 风格变换 API**
-  - `position`（位置）
-  - `scale`（缩放）
-  - `rotation`（旋转）
-  - `skew`（倾斜）
-  - `anchor`（锚点）
+- 支持 `Filter`（滤镜）与 `RenderTexture`（离屏渲染）
+- 参与 **zIndex 排序** 与 **混合模式**
+- 继承渲染器分辨率，滤镜不会因降采样而模糊
 
-- 内置交互支持
-  - 鼠标追踪
-  - 点击命中检测（Hit Area）
+### Cubism 2–5 支持
 
-- 相比官方 SDK，优化了 **动作预约与调度逻辑**
-- 完整且严格的 **TypeScript 类型定义**
-- 支持实时口型同步（Lip Sync）
-- 支持 **多动作并行播放**
-- 支持播放动作的 **末帧状态（Freeze）**
+同时适配 **Cubism 2.1（Legacy）** 与 **Cubism 5（Modern）**，通过不同的打包入口按需引入对应运行时。
+
+### 纹理 LOD
+
+针对大尺寸纹理图集（4096px+），提供三种 LOD 策略：
+
+- **`full`**（默认）：生成完整 mipmap 链
+- **`single-auto`**：根据模型在屏幕上的实际大小，按需生成低分辨率纹理，减少显存占用
+- **`false`**：仅使用原始纹理
+
+```ts
+const model = await Live2DModel.from('model.json', {
+  textureOptions: { lod: 'single-auto' }
+})
+```
+
+### 高精度遮罩自动检测
+
+复杂模型（大量遮罩 Drawable、高顶点密度等）容易因遮罩精度不足产生视觉瑕疵。引擎会自动分析模型结构，在需要时启用高精度遮罩，默认开启，也可手动控制。
+
+### 并行动作与末帧冻结
+
+- **并行播放**：同时驱动多个动作组，适用于上下半身独立动画等场景
+- **末帧冻结**：将动作定格在最后一帧，适用于立绘切换、姿态固定
+
+```ts
+// 并行播放
+model.parallelMotion([
+  { group: 'upper_body', index: 0 },
+  { group: 'lower_body', index: 1 }
+])
+
+// 末帧冻结
+await model.parallelLastFrame([
+  { group: 'arm', index: 0 },
+  { group: 'expression', index: 2 }
+])
+```
+
+## 功能一览
+
+- 支持 **Cubism 2 / 3 / 4 / 5** 模型
+- PixiJS v8 原生渲染管线（Filter / RenderTexture / Render Pipe）
+- 纹理 LOD 与高精度遮罩自动检测
+- 并行动作播放 / 动作末帧冻结
+- 实时口型同步（Lip Sync）
+- PixiJS 风格变换：`position` / `scale` / `rotation` / `skew` / `anchor`
+- 鼠标追踪 / 命中区域检测（Hit Area）
+- 改进的动作预约与优先级调度
+- 严格的 TypeScript 类型定义
+- 可配置 Cubism 工作内存大小
 
 ## 依赖要求
 
 - **PixiJS**：`8.x`
 - **Cubism 运行时**：`2.1` 或 `5`
-- **浏览器环境**：需支持 `WebGL` 与 `ES6`
+- **浏览器**：需支持 `WebGL` 与 `ES6`
 
 ## 安装
 
@@ -64,70 +101,38 @@ import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism-legacy'
 import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism'
 ```
 
-### 通过 HTML 导入
+### 通过 HTML 引入
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
 ```
 
-## Cubism 运行时说明
+## Cubism 运行时
 
-本项目支持 **所有版本的 Live2D 模型**，根据 Cubism 架构差异分为两类：
+Live2D 模型按 Cubism 架构分为两类，各自需要引入不同的外部运行时：
 
-- **Cubism Legacy**：Cubism 2.1
-- **Cubism Modern**：Cubism 3 / 4 / 5
+| 分类                | 模型版本             | 外部运行时                     | 打包入口               |
+|-------------------|------------------|---------------------------|--------------------|
+| **Cubism Legacy** | Cubism 2.1       | `live2d.min.js`           | `cubism-legacy.js` |
+| **Cubism Modern** | Cubism 3 / 4 / 5 | `live2dcubismcore.min.js` | `cubism.js`        |
+| **两者同时使用**        | —                | 以上两个                      | `index.js`         |
 
-你可以根据实际模型类型选择对应的运行时入口。
+### 获取外部运行时
 
-### 同时使用 Cubism Legacy 与 Cubism Modern
+**Cubism Legacy** — `live2d.min.js`
 
-#### 使用的打包文件
+官方已于 [2019 年 9 月 4 日](https://help.live2d.com/en/other/other_20/) 停止分发，可从以下来源获取：
 
-```text
-index.js
-```
+- [GitHub](https://github.com/dylanNew/live2d/tree/master/webgl/Live2D/lib)
+- [jsDelivr CDN](https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js)
 
-> 当项目中需要同时加载 Cubism 2 与 Cubism 3+ 模型时，请使用统一入口。
+**Cubism Modern** — `live2dcubismcore.min.js`
 
-### Cubism Legacy Only（Cubism 2.1）
-
-#### 前置要求
-
-需要手动引入 `live2d.min.js`：
-
-- 官方已于
-  [2019 年 9 月 4 日](https://help.live2d.com/en/other/other_20/)
-  停止提供该文件
-- 可从以下来源获取：
-  - GitHub：
-    [https://github.com/dylanNew/live2d/tree/master/webgl/Live2D/lib](https://github.com/dylanNew/live2d/tree/master/webgl/Live2D/lib)
-  - jsDelivr CDN：
-    [https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js](https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js)
-
-#### 使用的打包文件
-
-```text
-cubism-legacy.js
-```
-
-### Cubism Modern Only（Cubism 3 / 4 / 5）
-
-#### 前置要求
-
-需要引入 `live2dcubismcore.min.js`：
-
-- 可从官方 **Cubism 5 SDK** 下载
-  [https://www.live2d.com/download/cubism-sdk/download-web/](https://www.live2d.com/download/cubism-sdk/download-web/)
-
-#### 使用的打包文件
-
-```text
-cubism.js
-```
+从官方 [Cubism 5 SDK for Web](https://www.live2d.com/download/cubism-sdk/download-web/) 下载。
 
 ## 快速开始
 
-以下示例基于 **PixiJS v8**，同时支持 Cubism Legacy 与 Cubism Modern。
+以下示例基于 PixiJS v8，同时支持 Cubism Legacy 与 Cubism Modern。
 
 ```ts
 import { Application } from 'pixi.js'
@@ -143,11 +148,9 @@ await app.init({
 
 document.body.appendChild(app.canvas)
 
-// 配置 Cubism Modern 的工作内存（可选，默认 16MB）
-// 当同时加载多个模型或高复杂模型时，建议适当增大
-// configureCubismSDK({
-//   memorySizeMB: 32
-// })
+// 配置 Cubism Modern 工作内存（可选，默认 16MB）
+// 同时加载多个或高复杂度模型时，建议适当增大
+// configureCubismSDK({ memorySizeMB: 32 })
 
 const model = await Live2DModel.from('model/model3.json')
 model.anchor.set(0.5)
@@ -156,7 +159,7 @@ model.position.set(app.screen.width / 2, app.screen.height / 2)
 app.stage.addChild(model)
 ```
 
-## 常用 API 示例
+## API 示例
 
 ### 播放动作
 
@@ -173,7 +176,7 @@ model.parallelMotion([
 ])
 ```
 
-### 播放动作末帧
+### 末帧冻结
 
 **单动作：**
 
@@ -190,7 +193,7 @@ await model.parallelLastFrame([
 ])
 ```
 
-### 唇形同步
+### 口型同步
 
 ```ts
 model.speak('audio_file_url')
@@ -202,13 +205,16 @@ model.speak('audio_file_url')
 model.expression('id')
 ```
 
-详细用法可参见
-[pixi-live2d-display-lipsync](https://github.com/RaSan147/pixi-live2d-display)
-
 ## 常见问题
 
-### Q: 为什么同时加载多个模型后，模型更新异常？
+### Q: 同时加载多个模型后，模型更新异常？
 
-在 **Cubism Modern** 运行时下，通常是由于 `configureCubismSDK` 时配置的工作内存不足导致。
+使用 Cubism Modern 运行时时，通常是工作内存不足导致的。请在初始化时增大 `memorySizeMB`（最小 16MB）：
 
-请尝试在初始化阶段增大 `memorySizeMB` 的值（最小 16MB）。
+```ts
+configureCubismSDK({ memorySizeMB: 32 })
+```
+
+## 许可证
+
+[MIT](LICENSE)
