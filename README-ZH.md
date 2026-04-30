@@ -15,7 +15,7 @@
 
 ### PixiJS v8 原生渲染
 
-通过自定义 **Render Pipe** 接入 PixiJS v8 渲染架构：
+通过 `extensions.add(Live2DPlugin)` 注册自定义 **Render Pipe**，接入 PixiJS v8 渲染架构：
 
 - 支持 `Filter`（滤镜）与 `RenderTexture`（离屏渲染）
 - 参与 **zIndex 排序** 与 **混合模式**
@@ -92,7 +92,7 @@ npm install untitled-pixi-live2d-engine
 ```
 
 ```ts
-import { Live2DModel } from 'untitled-pixi-live2d-engine'
+import { Live2DModel, Live2DPlugin } from 'untitled-pixi-live2d-engine'
 
 // 仅使用 Cubism Legacy（Cubism 2.1）
 import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism-legacy'
@@ -135,8 +135,11 @@ Live2D 模型按 Cubism 架构分为两类，各自需要引入不同的外部�
 以下示例基于 PixiJS v8，同时支持 Cubism Legacy 与 Cubism Modern。
 
 ```ts
-import { Application } from 'pixi.js'
-import { configureCubismSDK, Live2DModel } from 'untitled-pixi-live2d-engine'
+import { Application, extensions } from 'pixi.js'
+import { configureCubismSDK, Live2DModel, Live2DPlugin } from 'untitled-pixi-live2d-engine'
+
+// 在创建 Pixi renderer 前注册 Live2D 渲染管线
+extensions.add(Live2DPlugin)
 
 const app = new Application()
 await app.init({

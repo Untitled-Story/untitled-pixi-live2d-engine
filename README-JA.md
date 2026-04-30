@@ -15,7 +15,7 @@
 
 ### PixiJS v8 ネイティブレンダリング
 
-カスタム **Render Pipe** により PixiJS v8 のレンダリングアーキテクチャに統合：
+`extensions.add(Live2DPlugin)` でカスタム **Render Pipe** を登録し、PixiJS v8 のレンダリングアーキテクチャに統合：
 
 - `Filter` および `RenderTexture` に対応
 - **zIndex ソート**・**ブレンドモード**に参加
@@ -92,7 +92,7 @@ npm install untitled-pixi-live2d-engine
 ```
 
 ```ts
-import { Live2DModel } from 'untitled-pixi-live2d-engine'
+import { Live2DModel, Live2DPlugin } from 'untitled-pixi-live2d-engine'
 
 // Cubism Legacy のみ（Cubism 2.1）
 import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism-legacy'
@@ -134,8 +134,11 @@ Live2D モデルは Cubism アーキテクチャにより 2 種類に分かれ�
 以下は PixiJS v8 を使用した例で、Cubism Legacy と Cubism Modern の両方に対応します。
 
 ```ts
-import { Application } from 'pixi.js'
-import { configureCubismSDK, Live2DModel } from 'untitled-pixi-live2d-engine'
+import { Application, extensions } from 'pixi.js'
+import { configureCubismSDK, Live2DModel, Live2DPlugin } from 'untitled-pixi-live2d-engine'
+
+// Pixi renderer を作成する前に Live2D レンダリングパイプを登録
+extensions.add(Live2DPlugin)
 
 const app = new Application()
 await app.init({
