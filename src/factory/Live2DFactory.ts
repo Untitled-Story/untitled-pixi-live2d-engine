@@ -16,7 +16,6 @@ import type { Middleware } from '@/utils/middleware'
 import { runMiddlewares } from '@/utils/middleware'
 import type { JSONObject } from '@/types/helpers'
 import { FileLoader } from './FileLoader'
-import { ZipLoader } from './ZipLoader'
 import type { Live2DTextureSourceOptions } from './texture'
 
 export interface Live2DFactoryOptions extends Live2DModelOptions {
@@ -167,7 +166,6 @@ export class Live2DFactory {
    * Middlewares to run through when setting up a Live2DModel.
    */
   static live2DModelMiddlewares: Middleware<Live2DFactoryContext>[] = [
-    ZipLoader.factory,
     FileLoader.factory,
     urlToJSON,
     jsonToSettings,
@@ -408,4 +406,3 @@ ExpressionManager.prototype['_loadExpression'] = function (index) {
 }
 
 FileLoader['live2dFactory'] = Live2DFactory
-ZipLoader['live2dFactory'] = Live2DFactory
