@@ -1,5 +1,7 @@
-import { Application } from 'pixi.js'
-import { Live2DModel } from '@/Live2DModel'
+import { Application, extensions } from 'pixi.js'
+import { Live2DModel, Live2DPlugin } from '@/Live2DModel'
+
+extensions.add(Live2DPlugin)
 
 const app = new Application()
 await app.init({
