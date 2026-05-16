@@ -15,6 +15,7 @@ import {
   CanvasSource,
   Container,
   DOMAdapter,
+  ExtensionType,
   Matrix,
   ObservablePoint,
   Point,
@@ -71,9 +72,26 @@ type Live2DPipeRenderer = Renderer & {
   }
 }
 
-// noinspection JSUnusedGlobalSymbols
+let live2DPluginFallbackWarned = false
+
+/**
+ * Internal PixiJS render pipe for Live2D models.
+ * @internal
+ */
 class Live2DPipe {
+  static extension = {
+    type: [ExtensionType.WebGLPipes],
+    name: 'live2d'
+  } as const
+
   constructor(private renderer: Renderer) {}
+
+  addRenderable(model: Live2DModel, instructionSet: InstructionSet): void {
+    const renderPipes = (this.renderer as Live2DPipeRenderer).renderPipes
+
+    renderPipes.batch?.break?.(instructionSet)
+    instructionSet.add(model)
+  }
 
   execute(model: Live2DModel): void {
     if (!model.visible || model.alpha <= 0) {
@@ -85,13 +103,45 @@ class Live2DPipe {
 
   updateRenderable(): void {}
 
+  destroyRenderable(): void {}
+
+  validateRenderable(): boolean {
+    return false
+  }
+
   destroy(): void {}
 }
 
+/**
+ * PixiJS extension entry for registering the Live2D WebGL render pipe.
+ *
+ * Register it before creating a renderer:
+ *
+ * ```ts
+ * import { extensions } from 'pixi.js'
+ * import { Live2DPlugin } from 'untitled-pixi-live2d-engine'
+ *
+ * extensions.add(Live2DPlugin)
+ * ```
+ */
+export const Live2DPlugin = Live2DPipe
+
+/**
+ * @deprecated Register {@link Live2DPlugin} with `extensions.add(Live2DPlugin)` before
+ * creating the Pixi renderer. This lazy fallback is kept only for backward compatibility.
+ */
 function ensureLive2DPipe(renderer: Renderer): void {
   const r = renderer as Live2DPipeRenderer
 
   if (!r.renderPipes.live2d) {
+    if (!live2DPluginFallbackWarned) {
+      live2DPluginFallbackWarned = true
+      console.warn(
+        '[untitled-pixi-live2d-engine] Lazy Live2D render pipe registration is deprecated. ' +
+          'Register Live2DPlugin explicitly with `extensions.add(Live2DPlugin)` before creating the Pixi renderer.'
+      )
+    }
+
     r.renderPipes.live2d = new Live2DPipe(renderer)
   }
 }
@@ -448,8 +498,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     const renderPipes = (renderer as Live2DPipeRenderer).renderPipes
 
     const addRenderable = () => {
-      renderPipes.batch?.break?.(instructionSet)
-      instructionSet.add(this)
+      renderPipes.live2d!.addRenderable(this, instructionSet)
     }
 
     const collectChildren = () => {

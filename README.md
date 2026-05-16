@@ -15,7 +15,7 @@ This project is a major refactor of [pixi-live2d-display-mulmotion](https://gith
 
 ### Native PixiJS v8 Rendering
 
-Integrates with the PixiJS v8 rendering architecture via a custom **Render Pipe**:
+Registers a custom **Render Pipe** with `extensions.add(Live2DPlugin)` to integrate with the PixiJS v8 rendering architecture:
 
 - Supports `Filter` and `RenderTexture`
 - Participates in **zIndex sorting** and **blend modes**
@@ -92,7 +92,7 @@ npm install untitled-pixi-live2d-engine
 ```
 
 ```ts
-import { Live2DModel } from 'untitled-pixi-live2d-engine'
+import { Live2DModel, Live2DPlugin } from 'untitled-pixi-live2d-engine'
 
 // Cubism Legacy only (Cubism 2.1)
 import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism-legacy'
@@ -134,8 +134,11 @@ Download from the official [Cubism 5 SDK for Web](https://www.live2d.com/downloa
 The following example uses PixiJS v8 and supports both Cubism Legacy and Cubism Modern.
 
 ```ts
-import { Application } from 'pixi.js'
-import { configureCubismSDK, Live2DModel } from 'untitled-pixi-live2d-engine'
+import { Application, extensions } from 'pixi.js'
+import { configureCubismSDK, Live2DModel, Live2DPlugin } from 'untitled-pixi-live2d-engine'
+
+// Register the Live2D render pipe before creating the Pixi renderer
+extensions.add(Live2DPlugin)
 
 const app = new Application()
 await app.init({
