@@ -17,7 +17,6 @@ import { CubismShaderManager_WebGL } from '@cubism/rendering/cubismshader_webgl'
 import { csmVector } from '@cubism/type/csmvector'
 import type { CubismIdManager } from '@cubism/id/cubismidmanager'
 import type { CubismIdHandle } from '@cubism/id/cubismid'
-import type { ICubismModelSetting } from '@cubism/icubismmodelsetting'
 import { Matrix } from 'pixi.js'
 import type { Mutable } from '@/types/helpers'
 import { clamp } from '@/utils'
@@ -220,19 +219,14 @@ export class CubismInternalModel extends InternalModel {
     const eyeBlinkParameters = this.settings.getEyeBlinkParameters()
 
     if (eyeBlinkParameters.length) {
-      if (this.isCubismModelSetting(this.settings)) {
-        this.eyeBlink = CubismEyeBlink.create(this.settings)
-      } else {
-        // fallback when CubismModelSettingJson mixin isn't present
-        const parameterIds = new csmVector<CubismIdHandle>()
-        for (const parameter of eyeBlinkParameters) {
-          parameterIds.pushBack(this.idManager.getId(parameter))
-        }
-
-        const eyeBlink = CubismEyeBlink.create()
-        eyeBlink.setParameterIds?.(parameterIds)
-        this.eyeBlink = eyeBlink
+      const parameterIds = new csmVector<CubismIdHandle>()
+      for (const parameter of eyeBlinkParameters) {
+        parameterIds.pushBack(this.idManager.getId(parameter))
       }
+
+      const eyeBlink = CubismEyeBlink.create()
+      eyeBlink.setParameterIds?.(parameterIds)
+      this.eyeBlink = eyeBlink
     }
     const breathParams = new csmVector<BreathParameterData>()
     breathParams.pushBack(
@@ -480,15 +474,5 @@ export class CubismInternalModel extends InternalModel {
     this.coreModel.release()
     ;(this as Partial<this>).renderer = undefined
     ;(this as Partial<this>).coreModel = undefined
-  }
-
-  private isCubismModelSetting(
-    settings: CubismModelSettings
-  ): settings is CubismModelSettings & ICubismModelSetting {
-    return (
-      typeof (settings as unknown as ICubismModelSetting).getEyeBlinkParameterCount ===
-        'function' &&
-      typeof (settings as unknown as ICubismModelSetting).getEyeBlinkParameterId === 'function'
-    )
   }
 }

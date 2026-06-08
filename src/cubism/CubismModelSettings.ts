@@ -1,10 +1,16 @@
 import { ModelSettings } from '@/cubism-common/ModelSettings'
 import { applyMixins } from '@/utils'
 import type * as CubismSpec from '@cubism/CubismSpec'
+import { CubismDefaultParameterId } from '@cubism/cubismdefaultparameterid'
 import { CubismModelSettingJson } from '@cubism/cubismmodelsettingjson'
 import type { CubismIdHandle } from '@cubism/id/cubismid'
 
 type CubismModelSettingJsonMixin = Omit<CubismModelSettingJson, 'name'>
+
+const defaultEyeBlinkParameters = [
+  CubismDefaultParameterId.ParamEyeLOpen!,
+  CubismDefaultParameterId.ParamEyeROpen!
+]
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging, @typescript-eslint/no-empty-object-type
 export interface CubismModelSettings extends CubismModelSettingJsonMixin {}
@@ -158,7 +164,7 @@ export class CubismModelSettings extends ModelSettings {
       }
     }
 
-    return parameters
+    return parameters.length ? parameters : [...defaultEyeBlinkParameters]
   }
 
   getLipSyncParameters(): string[] {
