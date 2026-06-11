@@ -2,26 +2,13 @@ import { FocusController } from '@/cubism-common/FocusController'
 import type { ModelSettings } from '@/cubism-common/ModelSettings'
 import type { MotionManager, MotionManagerOptions } from '@/cubism-common/MotionManager'
 import type { ParallelMotionManager } from '@/cubism-common/ParallelMotionManager'
-import { LOGICAL_HEIGHT, LOGICAL_WIDTH } from '@/cubism-common/constants'
+import type { CommonLayout } from '@/cubism-common/layout'
+import { setupLayoutMatrix } from '@/cubism-common/layout'
 import { EventEmitter, Matrix } from 'pixi.js'
 import type { Mutable } from '@/types/helpers'
 import type { CubismMotion } from '@cubism/motion/cubismmotion'
 
-/**
- * Common layout definition shared between all Cubism versions.
- */
-export interface CommonLayout {
-  centerX?: number
-  centerY?: number
-  x?: number
-  y?: number
-  width?: number
-  height?: number
-  top?: number
-  bottom?: number
-  left?: number
-  right?: number
-}
+export type { CommonLayout } from '@/cubism-common/layout'
 
 /**
  * Common hit area definition shared between all Cubism versions.
@@ -206,35 +193,15 @@ export abstract class InternalModel extends EventEmitter {
     self.originalWidth = size[0]
     self.originalHeight = size[1]
 
-    const layout = Object.assign(
-      {
-        width: LOGICAL_WIDTH,
-        height: LOGICAL_HEIGHT
-      },
+    const bounds = setupLayoutMatrix(
+      this.localTransform,
+      this.originalWidth,
+      this.originalHeight,
       this.getLayout()
     )
 
-    this.localTransform.scale(layout.width / LOGICAL_WIDTH, layout.height / LOGICAL_HEIGHT)
-
-    self.width = this.originalWidth * this.localTransform.a
-    self.height = this.originalHeight * this.localTransform.d
-
-    // this calculation differs from Live2D SDK...
-    const offsetX =
-      (layout.x !== undefined && layout.x - layout.width / 2) ||
-      (layout.centerX !== undefined && layout.centerX) ||
-      (layout.left !== undefined && layout.left - layout.width / 2) ||
-      (layout.right !== undefined && layout.right + layout.width / 2) ||
-      0
-
-    const offsetY =
-      (layout.y !== undefined && layout.y - layout.height / 2) ||
-      (layout.centerY !== undefined && layout.centerY) ||
-      (layout.top !== undefined && layout.top - layout.height / 2) ||
-      (layout.bottom !== undefined && layout.bottom + layout.height / 2) ||
-      0
-
-    this.localTransform.translate(this.width * offsetX, -this.height * offsetY)
+    self.width = bounds.width
+    self.height = bounds.height
   }
 
   /**
