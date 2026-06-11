@@ -1,6 +1,7 @@
 import type { InternalModelOptions } from '@/cubism-common'
 import type { CommonHitArea, CommonLayout } from '@/cubism-common/InternalModel'
 import { InternalModel, normalizeHitAreaDefs } from '@/cubism-common/InternalModel'
+import { setupCubismLayoutMatrix } from '@/cubism-common/layout'
 import type { CubismModelSettings } from '@/cubism/CubismModelSettings'
 import { CubismMotionManager } from '@/cubism/CubismMotionManager'
 import { CubismParallelMotionManager } from '@/cubism/CubismParallelMotionManager'
@@ -37,6 +38,31 @@ type MaskProfile = {
   maxMasksPerDrawable: number
   maskedVertexCount: number
   totalVertexCount: number
+}
+
+const layoutKeyMap: Record<string, keyof CommonLayout> = {
+  CenterX: 'centerX',
+  centerX: 'centerX',
+  center_x: 'centerX',
+  CenterY: 'centerY',
+  centerY: 'centerY',
+  center_y: 'centerY',
+  X: 'x',
+  x: 'x',
+  Y: 'y',
+  y: 'y',
+  Width: 'width',
+  width: 'width',
+  Height: 'height',
+  height: 'height',
+  Top: 'top',
+  top: 'top',
+  Bottom: 'bottom',
+  bottom: 'bottom',
+  Left: 'left',
+  left: 'left',
+  Right: 'right',
+  right: 'right'
 }
 
 function getRequiredMaskRenderTextureCount(model: CubismModel): number {
@@ -287,12 +313,12 @@ export class CubismInternalModel extends InternalModel {
     const settingsLayout = this.settings.layout
 
     if (settingsLayout) {
-      // un-capitalize each key to satisfy the common layout format
-      // e.g. CenterX -> centerX
       for (const [key, value] of Object.entries(settingsLayout)) {
-        const commonKey = key.charAt(0).toLowerCase() + key.slice(1)
+        const commonKey = layoutKeyMap[key]
 
-        layout[commonKey as keyof CommonLayout] = value
+        if (commonKey && typeof value === 'number') {
+          layout[commonKey] = value
+        }
       }
     }
 
@@ -300,11 +326,26 @@ export class CubismInternalModel extends InternalModel {
   }
 
   protected setupLayout() {
-    super.setupLayout()
-    ;(this as Mutable<this>).pixelsPerUnit = this.coreModel.getModel().canvasinfo.PixelsPerUnit
+    const self = this as Mutable<this>
+    const size = this.getSize()
+
+    self.originalWidth = size[0]
+    self.originalHeight = size[1]
+    self.pixelsPerUnit = this.coreModel.getModel().canvasinfo.PixelsPerUnit
+
+    const bounds = setupCubismLayoutMatrix(
+      this.localTransform,
+      this.originalWidth,
+      this.originalHeight,
+      this.getLayout()
+    )
+
+    self.width = bounds.width
+    self.height = bounds.height
 
     // move the origin from top left to center
     this.modelTransform
+      .identity()
       .scale(this.pixelsPerUnit, this.pixelsPerUnit)
       .translate(this.originalWidth / 2, this.originalHeight / 2)
   }
