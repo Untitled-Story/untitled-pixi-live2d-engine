@@ -120,6 +120,8 @@ export class CubismMotionManager extends MotionManager<CubismMotion, CubismSpec.
     )
     const json = new CubismMotionJson(data, data.byteLength)
 
+    motion.setLoop(json.isMotionLoop())
+
     const defaultFadingDuration =
       (group === this.groups.idle ? config.idleMotionFadingDuration : config.motionFadingDuration) /
       1000
