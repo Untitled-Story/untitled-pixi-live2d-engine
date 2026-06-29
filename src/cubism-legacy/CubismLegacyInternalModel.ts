@@ -87,7 +87,9 @@ export class CubismLegacyInternalModel extends InternalModel {
     }
     this.motionManager = new CubismLegacyMotionManager(this)
     this.parallelMotionManager = []
-    this.eyeBlink = new Live2DEyeBlink(coreModel)
+    if (this.options.eyeBlink !== false) {
+      this.eyeBlink = new Live2DEyeBlink(coreModel)
+    }
 
     this.eyeballXParamIndex = coreModel.getParamIndex('PARAM_EYE_BALL_X')
     this.eyeballYParamIndex = coreModel.getParamIndex('PARAM_EYE_BALL_Y')
