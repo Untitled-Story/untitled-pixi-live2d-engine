@@ -148,19 +148,30 @@ export class CubismModelSettings extends ModelSettings {
           parameters.push(id.getString().s)
         }
       }
-    } else if (Array.isArray(this.json.Groups)) {
+    } else {
+      let hasEyeBlinkGroup = false
       const groups = this.json.Groups
 
-      for (const group of groups) {
-        if (group?.Name !== 'EyeBlink' || !Array.isArray(group.Ids)) continue
+      if (Array.isArray(groups)) {
+        for (const group of groups) {
+          if (group?.Name !== 'EyeBlink') continue
 
-        for (const entry of group.Ids) {
-          if (typeof entry === 'string') {
-            parameters.push(entry)
-          } else if (entry?.Id) {
-            parameters.push(entry.Id)
+          hasEyeBlinkGroup = true
+
+          if (!Array.isArray(group.Ids)) continue
+
+          for (const entry of group.Ids) {
+            if (typeof entry === 'string') {
+              parameters.push(entry)
+            } else if (entry?.Id) {
+              parameters.push(entry.Id)
+            }
           }
         }
+      }
+
+      if (hasEyeBlinkGroup) {
+        return parameters
       }
     }
 

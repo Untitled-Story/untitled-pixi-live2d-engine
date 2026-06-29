@@ -89,6 +89,12 @@ export interface InternalModelOptions extends MotionManagerOptions {
   lipSyncWeight?: number
 
   /**
+   * Whether to enable automatic eye blinking between motions.
+   * @default true
+   */
+  eyeBlink?: boolean
+
+  /**
    * Whether to use Cubism's high precision clipping mask rendering.
    * Only supported by Cubism 3/4/5 models.
    * @default 'auto'

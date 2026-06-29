@@ -244,7 +244,7 @@ export class CubismInternalModel extends InternalModel {
 
     const eyeBlinkParameters = this.settings.getEyeBlinkParameters()
 
-    if (eyeBlinkParameters.length) {
+    if (this.options.eyeBlink !== false && eyeBlinkParameters.length) {
       const parameterIds = new csmVector<CubismIdHandle>()
       for (const parameter of eyeBlinkParameters) {
         parameterIds.pushBack(this.idManager.getId(parameter))
