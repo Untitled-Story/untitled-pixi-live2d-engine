@@ -107,6 +107,16 @@ import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism'
 <script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
 ```
 
+`@pixi/sound` 是可选的。只有在使用动作音频、`model.speak()` 或口型同步时，才需要在本包之前引入它：
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pixi/sound@6/dist/pixi-sound.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
+```
+
+如果应用不使用音频功能，可以省略 `pixi-sound.js`。
+
 ## Cubism 运行时
 
 Live2D 模型按 Cubism 架构分为两类，各自需要引入不同的外部运行时：

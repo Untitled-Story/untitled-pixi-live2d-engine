@@ -1,10 +1,84 @@
 import { logger, remove } from '@/utils'
 import { config } from '@/config'
-import { sound, Sound, webaudio } from '@pixi/sound'
+import type { Sound, SoundLibrary } from '@pixi/sound'
 
 const TAG = 'SoundManager'
 export const VOLUME = 0.5
-sound.disableAutoPause = true
+
+const SOUND_ALIAS_PREFIX = 'live2d-sound-'
+
+let soundId = 0
+let pixiSoundPromise: Promise<SoundLibrary | null> | undefined
+const configuredLibraries = new WeakSet<SoundLibrary>()
+
+function configureSoundLibrary(library: SoundLibrary): SoundLibrary {
+  if (!configuredLibraries.has(library)) {
+    try {
+      library.disableAutoPause = true
+    } catch (e) {
+      logger.warn(TAG, 'Failed to disable @pixi/sound auto pause.', e)
+    }
+
+    configuredLibraries.add(library)
+  }
+
+  return library
+}
+
+function getGlobalSoundLibrary(): SoundLibrary | undefined {
+  return typeof PIXI !== 'undefined' ? PIXI?.sound : undefined
+}
+
+async function resolveSoundLibrary(): Promise<SoundLibrary | null> {
+  const globalLibrary = getGlobalSoundLibrary()
+
+  if (globalLibrary) {
+    return configureSoundLibrary(globalLibrary)
+  }
+
+  pixiSoundPromise ??= import('@pixi/sound')
+    .then(({ sound }) => configureSoundLibrary(sound))
+    .catch((e: unknown) => {
+      logger.warn(
+        TAG,
+        '@pixi/sound is not available. Load pixi-sound.js before using motion sounds, speak(), or lip sync.',
+        e
+      )
+
+      return null
+    })
+
+  return pixiSoundPromise
+}
+
+function removeSound(library: SoundLibrary, alias: string): void {
+  try {
+    library.remove(alias)
+  } catch (e) {
+    logger.warn(TAG, `Failed to remove sound "${alias}".`, e)
+  }
+}
+
+function destroySound(audio: Sound): void {
+  try {
+    audio.destroy()
+  } catch (e) {
+    logger.warn(TAG, 'Failed to destroy audio.', e)
+  }
+}
+
+function getAudioBuffer(audio: Sound): AudioBuffer | undefined {
+  const media = audio.media as { buffer?: unknown }
+  const buffer = media.buffer
+
+  if (!buffer || typeof buffer !== 'object') {
+    return undefined
+  }
+
+  const candidate = buffer as Partial<AudioBuffer>
+
+  return typeof candidate.getChannelData === 'function' ? (buffer as AudioBuffer) : undefined
+}
 
 /**
  * Manages all the sounds.
@@ -16,6 +90,7 @@ export class SoundManager {
   static audios: Sound[] = []
   static analysers: AnalyserNode[] = []
   static contexts: AudioContext[] = []
+  protected static aliases = new WeakMap<Sound, { alias: string; library: SoundLibrary }>()
 
   protected static _volume = VOLUME
 
@@ -39,23 +114,59 @@ export class SoundManager {
    * @return Created audio element.
    */
   static async add(file: string, onError?: (e: Error) => void): Promise<Sound | null> {
+    let library: SoundLibrary | null = null
+    let alias: string | undefined
+
     try {
+      library = await resolveSoundLibrary()
+
+      if (!library) {
+        throw new Error('@pixi/sound is not available')
+      }
+
+      alias = `${SOUND_ALIAS_PREFIX}${soundId++}`
+      const soundLibrary = library
+      const soundAlias = alias
+
       const task = new Promise<Sound>((resolve, reject) => {
-        const audio = Sound.from({
+        const audio = soundLibrary.add(soundAlias, {
           url: file,
           volume: this._volume,
           preload: true,
-          loaded: () => {
-            if (!(audio.media instanceof webaudio.WebAudioMedia)) {
-              reject(new Error(`Error: ${file} is not WebAudioMedia`))
+          loaded: (error, loadedAudio) => {
+            if (error) {
+              reject(error)
+              return
             }
-            resolve(audio)
+
+            const sound = loadedAudio ?? audio
+
+            if (!sound) {
+              reject(new Error(`Error: ${file} failed to load`))
+              return
+            }
+
+            if (!getAudioBuffer(sound)) {
+              reject(new Error(`Error: ${file} is not WebAudioMedia`))
+              return
+            }
+
+            resolve(sound)
           }
         })
       })
 
-      return await task
+      const audio = await task
+
+      this.aliases.set(audio, { alias: soundAlias, library: soundLibrary })
+      this.audios.push(audio)
+
+      return audio
     } catch (e) {
+      if (library && alias) {
+        removeSound(library, alias)
+      }
+
       logger.warn(TAG, `Error occurred on "${file}"`, e)
       onError?.(e as Error)
       return null
@@ -72,17 +183,23 @@ export class SoundManager {
       singleInstance: true,
       complete: () => {
         onFinish?.()
-        audio.destroy()
+        this.dispose(audio)
       }
     })
   }
 
-  static addAnalyzer(audio: Sound, context: AudioContext): AnalyserNode {
+  static addAnalyzer(audio: Sound, context: AudioContext): AnalyserNode | undefined {
+    const buffer = getAudioBuffer(audio)
+
+    if (!buffer) {
+      logger.warn(TAG, 'Cannot create audio analyzer because WebAudio media is unavailable.')
+      return undefined
+    }
+
     /* Create an AnalyserNode */
-    const media = audio.media as webaudio.WebAudioMedia
     const source = context.createBufferSource()
 
-    source.buffer = media.buffer
+    source.buffer = buffer
 
     const analyser = context.createAnalyser()
 
@@ -103,7 +220,7 @@ export class SoundManager {
    * @param analyser - An analyzer element.
    * @return Returns value to feed into lip sync
    */
-  static analyze(analyser: AnalyserNode): number {
+  static analyze(analyser?: AnalyserNode): number {
     if (!analyser) return parseFloat(Math.random().toFixed(1))
 
     const buffer = new Float32Array(analyser.fftSize)
@@ -131,7 +248,20 @@ export class SoundManager {
    * @param audio - An audio element.
    */
   static dispose(audio: Sound): void {
-    audio.pause()
+    try {
+      audio.pause()
+    } catch (e) {
+      logger.warn(TAG, 'Failed to pause audio.', e)
+    }
+
+    const managedSound = this.aliases.get(audio)
+
+    if (managedSound) {
+      removeSound(managedSound.library, managedSound.alias)
+      this.aliases.delete(audio)
+    } else {
+      destroySound(audio)
+    }
 
     remove(this.audios, audio)
   }

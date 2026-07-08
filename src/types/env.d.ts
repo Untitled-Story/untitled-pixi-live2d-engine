@@ -9,5 +9,6 @@ declare const __HEADLESS__: string
 declare let PIXI:
   | undefined
   | (typeof import('pixi.js') & {
+      sound?: import('@pixi/sound').SoundLibrary
       live2d: typeof import('../index') & typeof import('../extra')
     })

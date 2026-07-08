@@ -356,7 +356,11 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
           that.currentAudio = undefined
         })
 
-        this.initializeAudio(audio!, volume)
+        if (!audio) {
+          return false
+        }
+
+        this.initializeAudio(audio, volume)
       } catch (e) {
         logger.warn(this.tag, 'Failed to create audio', soundURL, e)
         return false
@@ -482,7 +486,9 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
           that.currentAudio = undefined
         })
 
-        this.initializeAudio(audio!, volume)
+        if (audio) {
+          this.initializeAudio(audio, volume)
+        }
       } catch (e) {
         logger.warn(this.tag, 'Failed to create audio', soundURL, e)
       }
