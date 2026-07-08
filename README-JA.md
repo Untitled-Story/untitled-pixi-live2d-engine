@@ -107,6 +107,16 @@ import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism'
 <script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
 ```
 
+`@pixi/sound` は任意です。モーション音声、`model.speak()`、リップシンクを使用する場合のみ、このパッケージより前に読み込んでください：
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pixi/sound@6/dist/pixi-sound.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
+```
+
+音声機能を使用しない場合は、`pixi-sound.js` を省略できます。
+
 ## Cubism ランタイム
 
 Live2D モデルは Cubism アーキテクチャにより 2 種類に分かれ、それぞれ異なる外部ランタイムが必要です：

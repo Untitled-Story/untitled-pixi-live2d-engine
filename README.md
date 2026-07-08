@@ -107,6 +107,16 @@ import { Live2DModel } from 'untitled-pixi-live2d-engine/cubism'
 <script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
 ```
 
+`@pixi/sound` is optional. Load it before this package only when using motion sounds, `model.speak()`, or lip sync:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pixi/sound@6/dist/pixi-sound.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/untitled-pixi-live2d-engine/dist/index.min.js"></script>
+```
+
+If your app does not use audio features, you can omit `pixi-sound.js`.
+
 ## Cubism Runtime
 
 Live2D models are split into two categories by Cubism architecture, each requiring a different external runtime:
