@@ -30,7 +30,8 @@ export class CubismLegacyParallelMotionManager extends ParallelMotionManager<
   protected _startMotion(
     motion: Live2DMotion,
     onFinish?: (motion: Live2DMotion) => void,
-    ignoreParamIds?: string[]
+    ignoreParamIds?: string[],
+    _loop?: boolean
   ): number {
     motion.onFinishHandler = onFinish
 

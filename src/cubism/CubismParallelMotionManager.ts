@@ -49,9 +49,11 @@ export class CubismParallelMotionManager extends ParallelMotionManager<
   protected _startMotion(
     motion: CubismMotion,
     onFinish?: (motion: CubismMotion) => void,
-    ignoreParamIds?: string[]
+    ignoreParamIds?: string[],
+    loop?: boolean
   ): number {
     motion.setFinishedMotionHandler(onFinish as (motion: ACubismMotion) => void)
+    motion.setLoop(loop ?? motion._motionData.loop)
 
     if (ignoreParamIds && ignoreParamIds.length > 0) {
       const curves = motion._motionData.curves

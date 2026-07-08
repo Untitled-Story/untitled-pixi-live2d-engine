@@ -29,6 +29,22 @@ export interface MotionManagerOptions {
   checkMotionConsistency?: boolean
 }
 
+export interface MotionStartOptions {
+  sound?: string
+  volume?: number
+  expression?: number | string
+  resetExpression?: boolean
+  onFinish?: () => void
+  onError?: (e: Error) => void
+  ignoreParamIds?: string[]
+  /**
+   * Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
+   */
+  loop?: boolean
+}
+
+export type MotionStartRandomOptions = Omit<MotionStartOptions, 'ignoreParamIds'>
+
 /**
  * Indicates how the motions will be preloaded.
  */
@@ -394,6 +410,7 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
    * @param onFinish - Callback when playback finishes.
    * @param onError - Callback when playback errors.
    * @param ignoreParamIds - The ids to be ignored.
+   * @param loop - Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
    * @return Promise that resolves with true if the motion is successfully started, false otherwise.
    */
   async startMotion(
@@ -407,16 +424,9 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
       resetExpression = true,
       onFinish,
       onError,
-      ignoreParamIds = []
-    }: {
-      sound?: string
-      volume?: number
-      expression?: number | string
-      resetExpression?: boolean
-      onFinish?: () => void
-      onError?: (e: Error) => void
-      ignoreParamIds?: string[]
-    } = {}
+      ignoreParamIds = [],
+      loop = undefined
+    }: MotionStartOptions = {}
   ): Promise<boolean> {
     if (this.destroyed) {
       return false
@@ -520,7 +530,7 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
     this.playing = true
 
     if (motion) {
-      this._startMotion(motion, undefined, ignoreParamIds)
+      this._startMotion(motion, undefined, ignoreParamIds, loop)
     }
 
     return true
@@ -537,6 +547,7 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
    * @param crossOrigin - Cross origin setting.
    * @param onFinish - Callback when playback finishes.
    * @param onError - Callback when playback errors.
+   * @param loop - Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
    * @return Promise that resolves with true if the motion is successfully started, false otherwise.
    */
   async startRandomMotion(
@@ -548,15 +559,9 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
       expression,
       resetExpression = true,
       onFinish,
-      onError
-    }: {
-      sound?: string
-      volume?: number
-      expression?: number | string
-      resetExpression?: boolean
-      onFinish?: () => void
-      onError?: (e: Error) => void
-    } = {}
+      onError,
+      loop = undefined
+    }: MotionStartRandomOptions = {}
   ): Promise<boolean> {
     if (this.destroyed) {
       return false
@@ -583,7 +588,8 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
           expression: expression,
           resetExpression: resetExpression,
           onFinish: onFinish,
-          onError: onError
+          onError: onError,
+          loop: loop
         })
       }
     }
@@ -718,6 +724,7 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
    * @param motion - The Motion to start.
    * @param onFinish - Optional callback when finished.
    * @param ignoreParamIds - The ids to be ignored.
+   * @param loop - Whether the motion should loop.
    * @returns An ID or token for the motion.
    * @protected
    * @abstract
@@ -725,7 +732,8 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
   protected abstract _startMotion(
     motion: Motion,
     onFinish?: (motion: Motion) => void,
-    ignoreParamIds?: string[]
+    ignoreParamIds?: string[],
+    loop?: boolean
   ): number
 
   /**
