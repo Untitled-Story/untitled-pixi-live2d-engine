@@ -47,12 +47,13 @@ const model = await Live2DModel.from('model.json', {
 
 - **並列再生**：複数のモーショングループを同時に駆動（上半身・下半身の独立アニメーションなど）
 - **最終フレーム固定**：モーションを最終フレームで停止させる（立ち絵の切り替え、ポーズ固定など）
+- **ループ上書き**：各並列モーション項目に `loop` を指定して、Cubism 3/4/5 モーション JSON のループ設定を上書きできます
 
 ```ts
 // 並列再生
 model.parallelMotion([
   { group: 'upper_body', index: 0 },
-  { group: 'lower_body', index: 1 }
+  { group: 'lower_body', index: 1, loop: true }
 ])
 
 // 最終フレーム固定
@@ -184,7 +185,7 @@ model.motion('group', index)
 ```ts
 model.parallelMotion([
   { group: group1, index: index1 },
-  { group: group2, index: index2 }
+  { group: group2, index: index2, loop: true }
 ])
 ```
 
