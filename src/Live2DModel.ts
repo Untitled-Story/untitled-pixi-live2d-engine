@@ -583,6 +583,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    * @param [options.resetExpression=true] - Reset the expression to default after the motion is finished.
    * @param [options.onFinish] - Callback function when speaking completes.
    * @param [options.onError] - Callback function when an error occurs.
+   * @param [options.loop] - Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
    * @return Promise that resolves with true if the motion is successfully started, with false otherwise.
    */
   async motion(
@@ -595,7 +596,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       expression = undefined,
       resetExpression = true,
       onFinish,
-      onError
+      onError,
+      loop = undefined
     }: {
       sound?: string
       volume?: number
@@ -603,6 +605,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       resetExpression?: boolean
       onFinish?: () => void
       onError?: (e: Error) => void
+      loop?: boolean
     } = {}
   ): Promise<boolean> {
     if (index === undefined) {
@@ -612,7 +615,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
         expression: expression,
         resetExpression: resetExpression,
         onFinish: onFinish,
-        onError: onError
+        onError: onError,
+        loop: loop
       })
     } else {
       return this.internalModel.motionManager.startMotion(group, index, priority, {
@@ -621,7 +625,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
         expression: expression,
         resetExpression: resetExpression,
         onFinish: onFinish,
-        onError: onError
+        onError: onError,
+        loop: loop
       })
     }
   }

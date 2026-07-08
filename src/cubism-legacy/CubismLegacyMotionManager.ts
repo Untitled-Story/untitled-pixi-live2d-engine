@@ -75,7 +75,8 @@ export class CubismLegacyMotionManager extends MotionManager<Live2DMotion, Cubis
   protected _startMotion(
     motion: Live2DMotion,
     onFinish?: (motion: Live2DMotion) => void,
-    ignoreParamIds?: string[]
+    ignoreParamIds?: string[],
+    _loop?: boolean
   ): number {
     motion.onFinishHandler = onFinish
 
