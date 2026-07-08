@@ -47,12 +47,13 @@ Complex models (many masked drawables, high vertex density, etc.) can produce vi
 
 - **Parallel playback**: drive multiple motion groups simultaneously, useful for independent upper/lower body animations
 - **Last-frame freeze**: hold a motion on its final frame, useful for pose switching or static illustrations
+- **Loop override**: set `loop` per parallel motion item to override Cubism 3/4/5 motion JSON loop metadata
 
 ```ts
 // Parallel playback
 model.parallelMotion([
   { group: 'upper_body', index: 0 },
-  { group: 'lower_body', index: 1 }
+  { group: 'lower_body', index: 1, loop: true }
 ])
 
 // Last-frame freeze
@@ -184,7 +185,7 @@ model.motion('group', index)
 ```ts
 model.parallelMotion([
   { group: group1, index: index1 },
-  { group: group2, index: index2 }
+  { group: group2, index: index2, loop: true }
 ])
 ```
 

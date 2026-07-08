@@ -7,6 +7,16 @@ import { logger } from '@/utils'
 import { EventEmitter } from 'pixi.js'
 import type { InternalModel } from '@/cubism-common/InternalModel'
 
+export interface ParallelMotionStartOptions {
+  ignoreParamIds?: string[]
+  /**
+   * Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
+   */
+  loop?: boolean
+}
+
+export type ParallelMotionStartRandomOptions = Omit<ParallelMotionStartOptions, 'ignoreParamIds'>
+
 /**
  * Handles the motion playback.
  * @emits {@link MotionManagerEvents}
@@ -59,14 +69,19 @@ export abstract class ParallelMotionManager<
    * @param index - Index in the motion group.
    * @param priority - The priority to be applied. default: 2 (NORMAL)
    * @param ignoreParamIds - The ids to be ignored.
+   * @param loop - Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
    * @return Promise that resolves with true if the motion is successfully started, with false otherwise.
    */
   async startMotion(
     group: string,
     index: number,
     priority: MotionPriority = MotionPriority.NORMAL,
-    ignoreParamIds: string[] = []
+    options: ParallelMotionStartOptions | string[] = {}
   ): Promise<boolean> {
+    const { ignoreParamIds = [], loop } = Array.isArray(options)
+      ? { ignoreParamIds: options, loop: undefined }
+      : options
+
     if (!this.state.reserve(group, index, priority)) {
       return false
     }
@@ -87,7 +102,7 @@ export abstract class ParallelMotionManager<
 
     this.playing = true
 
-    this._startMotion(motion! as Motion, undefined, ignoreParamIds)
+    this._startMotion(motion! as Motion, undefined, ignoreParamIds, loop)
 
     return true
   }
@@ -96,9 +111,14 @@ export abstract class ParallelMotionManager<
    * Starts a random Motion as given priority.
    * @param group - The motion group.
    * @param priority - The priority to be applied. (default: 1 `IDLE`)
+   * @param loop - Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
    * @return Promise that resolves with true if the motion is successfully started, with false otherwise.
    */
-  async startRandomMotion(group: string, priority?: MotionPriority): Promise<boolean> {
+  async startRandomMotion(
+    group: string,
+    priority?: MotionPriority,
+    { loop = undefined }: ParallelMotionStartRandomOptions = {}
+  ): Promise<boolean> {
     const groupDefs = this.manager.definitions[group]
 
     if (groupDefs?.length) {
@@ -114,7 +134,7 @@ export abstract class ParallelMotionManager<
       if (availableIndices.length) {
         const index = availableIndices[Math.floor(Math.random() * availableIndices.length)]!
 
-        return this.startMotion(group, index, priority)
+        return this.startMotion(group, index, priority, { loop: loop })
       }
     }
 
@@ -176,7 +196,8 @@ export abstract class ParallelMotionManager<
   protected abstract _startMotion(
     motion: Motion,
     onFinish?: (motion: Motion) => void,
-    ignoreParamIds?: string[]
+    ignoreParamIds?: string[],
+    loop?: boolean
   ): number
 
   /**

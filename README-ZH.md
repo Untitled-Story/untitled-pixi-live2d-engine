@@ -47,12 +47,13 @@ const model = await Live2DModel.from('model.json', {
 
 - **并行播放**：同时驱动多个动作组，适用于上下半身独立动画等场景
 - **末帧冻结**：将动作定格在最后一帧，适用于立绘切换、姿态固定
+- **循环覆盖**：可在每个并行动作条目中设置 `loop`，覆盖 Cubism 3/4/5 动作 JSON 中的循环配置
 
 ```ts
 // 并行播放
 model.parallelMotion([
   { group: 'upper_body', index: 0 },
-  { group: 'lower_body', index: 1 }
+  { group: 'lower_body', index: 1, loop: true }
 ])
 
 // 末帧冻结
@@ -185,7 +186,7 @@ model.motion('group', index)
 ```ts
 model.parallelMotion([
   { group: group1, index: index1 },
-  { group: group2, index: index2 }
+  { group: group2, index: index2, loop: true }
 ])
 ```
 

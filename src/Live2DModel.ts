@@ -649,6 +649,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    *  group: The motion group,
    *  index: Index in the motion group,
    *  priority: The priority to be applied. (0: No priority, 1: IDLE, 2:NORMAL, 3:FORCE) (default: 2)
+   *  ignoreParamIds: The ids to be ignored,
+   *  loop: Whether the motion should loop.
    * @return Promise that resolves with a list, indicates the motion is successfully started, with false otherwise.
    */
   async parallelMotion(
@@ -656,11 +658,16 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       group: string
       index: number
       priority?: MotionPriority
+      ignoreParamIds?: string[]
+      loop?: boolean
     }[]
   ): Promise<boolean[]> {
     this.internalModel.extendParallelMotionManager(motionList.length)
     const result = motionList.map((m, idx) =>
-      this.internalModel.parallelMotionManager[idx]!.startMotion(m.group, m.index, m.priority)
+      this.internalModel.parallelMotionManager[idx]!.startMotion(m.group, m.index, m.priority, {
+        ignoreParamIds: m.ignoreParamIds,
+        loop: m.loop
+      })
     )
     const flags: boolean[] = []
     for (const r of result) {
