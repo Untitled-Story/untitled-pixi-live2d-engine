@@ -80,6 +80,15 @@ type Live2DPipeRenderer = Renderer & {
   }
 }
 
+type Live2DPrepareInstruction = {
+  renderPipeId: 'live2d'
+  action: 'prepare'
+  canBundle: false
+  prepare: () => void
+}
+
+type Live2DInstruction = Live2DModel | Live2DPrepareInstruction
+
 let live2DPluginFallbackWarned = false
 
 /**
@@ -94,6 +103,18 @@ class Live2DPipe {
 
   constructor(private renderer: Renderer) {}
 
+  addPrepare(prepare: () => void, instructionSet: InstructionSet): void {
+    const renderPipes = (this.renderer as Live2DPipeRenderer).renderPipes
+
+    renderPipes.batch?.break?.(instructionSet)
+    instructionSet.add({
+      renderPipeId: 'live2d',
+      action: 'prepare',
+      canBundle: false,
+      prepare
+    } as Live2DPrepareInstruction)
+  }
+
   addRenderable(model: Live2DModel, instructionSet: InstructionSet): void {
     const renderPipes = (this.renderer as Live2DPipeRenderer).renderPipes
 
@@ -101,7 +122,14 @@ class Live2DPipe {
     instructionSet.add(model)
   }
 
-  execute(model: Live2DModel): void {
+  execute(instruction: Live2DInstruction): void {
+    if (!(instruction instanceof Live2DModel)) {
+      instruction.prepare()
+      return
+    }
+
+    const model = instruction
+
     if (!model.visible || model.alpha <= 0) {
       return
     }
@@ -547,11 +575,11 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
 
     const effects = this.effects
 
-    if (effects?.length) {
-      this.prepareForRender()
-    }
-
     if (effects) {
+      if (effects.length) {
+        renderPipes.live2d!.addPrepare(() => this.prepareForRender(), instructionSet)
+      }
+
       for (let i = 0; i < effects.length; i++) {
         const effect = effects[i]!
 
