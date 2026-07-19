@@ -498,8 +498,19 @@ export class CubismInternalModel extends InternalModel {
 
     this.renderer.setMvpMatrix(tempMatrix)
     const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer
+    const previousCullFaceMode = gl.getParameter(gl.CULL_FACE_MODE) as GLenum
+    const determinant = array[0] * array[5] - array[1] * array[4]
+
+    // Cubism always treats CCW triangles as front-facing. Keep the visible face consistent
+    // when Pixi flips the projection for render textures, filters, or mirrored transforms.
+    gl.cullFace(determinant < 0 ? gl.FRONT : gl.BACK)
     this.renderer.setRenderState(framebuffer, this.viewport)
-    this.renderer.drawModel()
+
+    try {
+      this.renderer.drawModel()
+    } finally {
+      gl.cullFace(previousCullFaceMode)
+    }
   }
 
   extendParallelMotionManager(managerCount: number) {
