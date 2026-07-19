@@ -415,6 +415,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     }
 
     this._boundsDirty = false
+    this._didViewChangeTick++
+    this.onAnchorChange()
   }
 
   /**
@@ -551,8 +553,6 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
   protected initializeOnModelLoad(_options?: Live2DModelOptions) {
     this.tag = `Live2DModel(${this.internalModel.settings.name})`
 
-    // apply anchor to pivot now that the internal model dimensions are available
-    this.onAnchorChange()
     this.updateDrawableBounds()
   }
 
@@ -565,9 +565,11 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       return
     }
 
+    const bounds = this.bounds
+
     this.pivot.set(
-      this.anchor.x * this.internalModel.width,
-      this.anchor.y * this.internalModel.height
+      bounds.minX + this.anchor.x * bounds.width,
+      bounds.minY + this.anchor.y * bounds.height
     )
   }
 
@@ -858,10 +860,15 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       return
     }
 
-    const width = this.internalModel.width
-    const height = this.internalModel.height
+    const bounds = this.bounds
 
-    this.getBounds().addFrame(0, 0, width, height, this.transform.matrix)
+    this.getBounds().addFrame(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX,
+      bounds.maxY,
+      this.transform.matrix
+    )
   }
 
   /**
