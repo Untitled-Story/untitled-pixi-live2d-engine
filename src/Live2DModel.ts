@@ -366,7 +366,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     return this._bounds
   }
 
-  private updateDrawableBounds(): void {
+  private updateDrawableBounds(applyAnchor = false): void {
     if (!this.internalModel) {
       this._bounds.set(0, 0, 0, 0)
       this._boundsDirty = false
@@ -426,9 +426,29 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     this._boundsDirty = false
     this._didViewChangeTick++
 
-    if (this.anchorMode === 'drawable') {
+    if (applyAnchor && this.anchorMode === 'drawable') {
       this.onAnchorChange()
     }
+  }
+
+  /**
+   * Updates the model and its drawable bounds before Pixi calculates filter areas.
+   * Filter pipes collect their framebuffer bounds before the Live2D render pipe runs,
+   * so waiting until `renderLive2D()` is too late for animated vertices.
+   */
+  private prepareForRender(): void {
+    if (!this.internalModel) {
+      return
+    }
+
+    const frameDelta = this.deltaTime
+    this.deltaTime = 0
+
+    if (frameDelta) {
+      this.internalModel.update(frameDelta, this.elapsedTime)
+    }
+
+    this.updateDrawableBounds()
   }
 
   /**
@@ -527,6 +547,10 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
 
     const effects = this.effects
 
+    if (effects?.length) {
+      this.prepareForRender()
+    }
+
     if (effects) {
       for (let i = 0; i < effects.length; i++) {
         const effect = effects[i]!
@@ -566,8 +590,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
   protected initializeOnModelLoad(_options?: Live2DModelOptions) {
     this.tag = `Live2DModel(${this.internalModel.settings.name})`
 
-    this.updateDrawableBounds()
-
+    this.updateDrawableBounds(true)
     if (this.anchorMode === 'canvas') {
       this.onAnchorChange()
     }
@@ -1091,7 +1114,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     this.internalModel.draw(renderer.gl)
 
     if (this._boundsRetryAfterDraw) {
-      this.updateDrawableBounds()
+      this.updateDrawableBounds(true)
     }
 
     renderer.state.resetState()
