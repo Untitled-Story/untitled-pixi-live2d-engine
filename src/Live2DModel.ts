@@ -28,6 +28,14 @@ import type { JSONObject } from './types/helpers'
 
 export interface Live2DModelOptions extends InternalModelOptions, AutomatorOptions {
   /**
+   * Defines which bounds are used to resolve the normalized {@link Live2DModel.anchor}.
+   * `'canvas'` preserves the historical model-canvas behavior, while `'drawable'`
+   * resolves the anchor against the visible drawable bounds.
+   * @default 'canvas'
+   */
+  anchorMode?: 'canvas' | 'drawable'
+
+  /**
    * Texture loading and atlas LOD options for this model.
    *
    * See {@link Live2DTextureLODOptions} for the available `lod` strategies.
@@ -322,6 +330,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
   textures: Texture[] = []
 
   private readonly textureOptions?: Live2DTextureSourceOptions
+  readonly anchorMode: NonNullable<Live2DModelOptions['anchorMode']>
   private readonly textureLODStates: (Live2DTextureLODState | undefined)[] = []
   private readonly textureLODFailures: (Live2DTextureLODFailures | undefined)[] = []
 
@@ -416,7 +425,10 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
 
     this._boundsDirty = false
     this._didViewChangeTick++
-    this.onAnchorChange()
+
+    if (this.anchorMode === 'drawable') {
+      this.onAnchorChange()
+    }
   }
 
   /**
@@ -458,6 +470,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     super()
 
     this.textureOptions = options?.textureOptions
+    this.anchorMode = options?.anchorMode ?? 'canvas'
 
     this.anchor = new ObservablePoint(
       {
@@ -554,6 +567,10 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     this.tag = `Live2DModel(${this.internalModel.settings.name})`
 
     this.updateDrawableBounds()
+
+    if (this.anchorMode === 'canvas') {
+      this.onAnchorChange()
+    }
   }
 
   /**
@@ -565,12 +582,19 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       return
     }
 
-    const bounds = this.bounds
+    if (this.anchorMode === 'drawable') {
+      const bounds = this.bounds
 
-    this.pivot.set(
-      bounds.minX + this.anchor.x * bounds.width,
-      bounds.minY + this.anchor.y * bounds.height
-    )
+      this.pivot.set(
+        bounds.minX + this.anchor.x * bounds.width,
+        bounds.minY + this.anchor.y * bounds.height
+      )
+    } else {
+      this.pivot.set(
+        this.anchor.x * this.internalModel.width,
+        this.anchor.y * this.internalModel.height
+      )
+    }
   }
 
   /**
