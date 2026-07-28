@@ -90,7 +90,7 @@
     "jszip": "^3.10.0",
     "lodash-es": "^4.17.23",
     "prettier": "^3.5.3",
-    "rimraf": "^3.0.2",
+    "rimraf": "^6.1.2",
     "terser": "^5.30.3",
     "type-fest": "^4.4.0",
     "typescript": "^5.2.2",
