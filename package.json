@@ -80,7 +80,7 @@
     "@typescript-eslint/eslint-plugin": "^8.33.1",
     "@typescript-eslint/parser": "^8.33.1",
     "birpc": "^0.2.17",
-    "dts-bundle-generator": "6.11.0",
+    "dts-bundle-generator": "9.5.1",
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.4.1",
