@@ -101,5 +101,8 @@ Live2DFactory.registerRuntime({
 })
 
 function releaseMoc(this: CubismInternalModel) {
-  ;(this as CubismInternalModel & ModelWithMoc).__moc?.release()
+  const moc = (this as CubismInternalModel & ModelWithMoc).__moc
+  // deleteModel decrements the model count that release() asserts is zero
+  moc?.deleteModel(this.coreModel)
+  moc?.release()
 }

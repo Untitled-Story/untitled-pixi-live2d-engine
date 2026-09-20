@@ -523,7 +523,6 @@ export class CubismInternalModel extends InternalModel {
     super.destroy()
 
     this.renderer.release()
-    this.coreModel.release()
     ;(this as Partial<this>).renderer = undefined
     ;(this as Partial<this>).coreModel = undefined
   }
