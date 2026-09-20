@@ -17,6 +17,19 @@ export interface Live2DTextureSourceOptions extends Live2DTextureLODOptions {
 
 export interface CreateTextureOptions extends Live2DTextureSourceOptions {
   crossOrigin?: string
+  format?: string
+}
+
+export function getTextureFormat(path: string): string | undefined {
+  const [pathname = ''] = path.split(/[?#]/, 1)
+  const filename = pathname.slice(pathname.lastIndexOf('/') + 1)
+  const extensionIndex = filename.lastIndexOf('.')
+
+  if (extensionIndex <= 0 || extensionIndex === filename.length - 1) {
+    return undefined
+  }
+
+  return filename.slice(extensionIndex + 1).toLowerCase()
 }
 
 export function createTexture(url: string, options: CreateTextureOptions = {}): Promise<Texture> {
@@ -35,6 +48,8 @@ export function createTexture(url: string, options: CreateTextureOptions = {}): 
 
   return Assets.load<Texture>({
     src: url,
+    format: options.format,
+    parser: 'texture',
     data: {
       autoGenerateMipmaps: getTextureLODMode(options.lod) === 'full'
     }
