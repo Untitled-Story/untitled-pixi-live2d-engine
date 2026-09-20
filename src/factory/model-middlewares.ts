@@ -3,7 +3,7 @@ import { CubismLegacyModelSettings } from '@/cubism-legacy/CubismLegacyModelSett
 import type { Live2DFactoryContext } from '@/factory/Live2DFactory'
 import { Live2DFactory } from '@/factory/Live2DFactory'
 import { Live2DLoader } from '@/factory/Live2DLoader'
-import { createTexture, type CreateTextureOptions } from '@/factory/texture'
+import { createTexture, getTextureFormat, type CreateTextureOptions } from '@/factory/texture'
 import { logger } from '@/utils'
 import type { Middleware } from '@/utils/middleware'
 import type { JSONObject } from '@/types/helpers'
@@ -193,7 +193,10 @@ export const setupEssentials: Middleware<Live2DFactoryContext> = async (context,
     const loadingTextures = Promise.all(
       context.settings.textures.map((tex) => {
         const url = context.settings!.resolveURL(tex)
-        return createTexture(url, textureOptions)
+        return createTexture(url, {
+          ...textureOptions,
+          format: getTextureFormat(tex)
+        })
       })
     )
 
