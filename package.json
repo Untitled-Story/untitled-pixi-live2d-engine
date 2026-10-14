@@ -92,7 +92,7 @@
     "prettier": "^3.5.3",
     "rimraf": "^3.0.2",
     "terser": "^5.30.3",
-    "type-fest": "^4.4.0",
+    "type-fest": "^5.4.1",
     "typescript": "^5.2.2",
     "vite": "^6.3.5"
   },
