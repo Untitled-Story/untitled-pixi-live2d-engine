@@ -8,10 +8,7 @@ import type { ACubismMotion } from '@cubism/motion/acubismmotion'
 import type { CubismMotion } from '@cubism/motion/cubismmotion'
 import { CubismMotionQueueManager } from '@cubism/motion/cubismmotionqueuemanager'
 import type { Mutable } from '@/types/helpers'
-import { MotionPriority } from '@/cubism-common'
 import type { CubismInternalModel } from '@/cubism/CubismInternalModel'
-import { motionSkipToLastFrame } from '@/cubism/MotionSkipLastFrameHelper'
-import { logger } from '@/utils'
 import { csmVector } from '@cubism/type/csmvector'
 
 export class CubismParallelMotionManager extends ParallelMotionManager<
@@ -77,7 +74,7 @@ export class CubismParallelMotionManager extends ParallelMotionManager<
     }
 
     this.queueManager.stopAllMotions()
-    return this.queueManager.startMotion(motion, false) as number
+    return this.queueManager.startMotion(motion, true) as number
   }
 
   protected _stopAllMotions(): void {
@@ -97,38 +94,6 @@ export class CubismParallelMotionManager extends ParallelMotionManager<
 
     this.queueManager.release()
     ;(this as Partial<Mutable<this>>).queueManager = undefined
-  }
-
-  async playMotionLastFrame(group: string, index: number): Promise<boolean> {
-    if (!this.state.reserve(group, index, MotionPriority.FORCE)) {
-      return false
-    }
-
-    const definition = this.manager.definitions[group]?.[index]
-    if (!definition) {
-      return false
-    }
-
-    const motion = (await this.manager.loadMotion(group, index)) as CubismMotion
-    if (!this.state.start(motion, group, index, MotionPriority.FORCE)) {
-      return false
-    }
-
-    logger.log(this.tag, 'Start motion:', this.getMotionName(definition as CubismSpec.Motion))
-
-    this.emit('motionStart', group, index, undefined)
-
-    this.playing = true
-
-    this.queueManager.stopAllMotions()
-
-    if (!motionSkipToLastFrame(this.queueManager, this.parent as CubismInternalModel, motion)) {
-      this.playing = false
-      return false
-    }
-    this.playing = false
-
-    return true
   }
 }
 

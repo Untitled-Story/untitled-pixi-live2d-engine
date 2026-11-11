@@ -1,4 +1,5 @@
 import { config } from '@/config'
+import { Live2DLoader } from '@/factory/Live2DLoader'
 import type { ExpressionManager } from '@/cubism-common/ExpressionManager'
 import type { ModelSettings } from '@/cubism-common/ModelSettings'
 import { MotionPriority, MotionState } from '@/cubism-common/MotionState'
@@ -116,6 +117,10 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
    * @type {Partial<Record<string, (Motion | undefined | null)[]>>}
    */
   motionGroups: Partial<Record<string, (Motion | undefined | null)[]>> = {}
+
+  private motionData: Partial<Record<string, (ArrayBuffer | JSONObject | undefined)[]>> = {}
+
+  private motionTasks: Partial<Record<string, (Promise<Motion | undefined> | undefined)[]>> = {}
 
   /**
    * Maintains the state of this MotionManager.
@@ -272,13 +277,65 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
     return motion
   }
 
-  /**
-   * Loads the Motion. Will be implemented by Live2DFactory in order to avoid circular dependency.
-   * @ignore
-   */
-  private _loadMotion(_group: string, _index: number): Promise<Motion | undefined> {
-    throw new Error('Not implemented.')
+  private _loadMotion(group: string, index: number): Promise<Motion | undefined> {
+    const tasks = (this.motionTasks[group] ??= [])
+    if (tasks[index]) return tasks[index]
+
+    const definition = this.definitions[group]?.[index]
+    if (!definition) return Promise.resolve(undefined)
+    const path = this.getMotionFile(definition)
+    const task = Live2DLoader.load<ArrayBuffer | JSONObject>({
+      url: path,
+      settings: this.settings,
+      type: this.motionDataType,
+      target: this
+    })
+      .then((data) => {
+        if (this.destroyed) return undefined
+        const motion = this.createMotion(data, group, definition)
+        ;(this.motionData[group] ??= [])[index] = data
+        this.emit('motionLoaded', group, index, motion)
+        return motion
+      })
+      .catch((error: unknown) => {
+        logger.warn(this.tag, `Failed to load motion: ${path}\n`, error)
+        if (!this.destroyed) this.emit('motionLoadError', group, index, error)
+        return undefined
+      })
+      .finally(() => {
+        tasks[index] = undefined
+      })
+    tasks[index] = task
+    return task
   }
+
+  /** Creates an independent playback instance from a previously loaded motion. */
+  createMotionInstance(group: string, index: number): Motion | undefined {
+    const data = this.motionData[group]?.[index]
+    const definition = this.definitions?.[group]?.[index]
+    return data && definition ? this.createMotion(data, group, definition) : undefined
+  }
+
+  /** Queue a one-time application on the next model update. Time is measured in seconds. */
+  async applyMotion(group: string, index: number, time: number | 'end'): Promise<boolean> {
+    if (time !== 'end' && (!Number.isFinite(time) || time < 0)) {
+      throw new RangeError('Motion time must be a non-negative finite number of seconds.')
+    }
+    const motion = await this.loadMotion(group, index)
+    if (this.destroyed || !motion) return false
+    const data = this.motionData[group]?.[index]
+    const definition = this.definitions[group]?.[index]
+    if (!data || !definition) return false
+
+    // Playback mutates SDK motions, so sample an independent instance from the cached data.
+    this.parent.queueMotionApplication(() => {
+      const sample = this.createMotion(data, group, definition)
+      this.applyMotionAtTime(sample, time)
+    })
+    return true
+  }
+
+  protected abstract applyMotionAtTime(motion: Motion, time: number | 'end'): void
 
   /**
    * Initializes audio playback and sets up audio analysis for lipsync.
@@ -536,7 +593,9 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
     this.playing = true
 
     if (motion) {
-      this._startMotion(motion, undefined, ignoreParamIds, loop)
+      const playback = this.createMotionInstance(group, index)
+      if (!playback) return false
+      this._startMotion(playback, undefined, ignoreParamIds, loop)
     }
 
     return true
@@ -672,6 +731,8 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
     this.emit('destroy')
 
     this.stopAllMotions()
+    this.motionData = {}
+    this.motionTasks = {}
     this.expressionManager?.destroy()
 
     const self = this as Mutable<Partial<this>>
@@ -758,76 +819,6 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
    * @abstract
    */
   protected abstract updateParameters(model: object, now: DOMHighResTimeStamp): boolean
-
-  /**
-   * Loads a motion and applies the given expression with FORCE priority.
-   * @param group - The motion group.
-   * @param index - The motion index.
-   * @param expression - Expression to apply (optional).
-   * @returns The loaded motion, or null if not started.
-   * @protected
-   */
-  protected async getMotionAndApplyExpression(
-    group: string,
-    index: number,
-    expression?: number | string
-  ): Promise<unknown> {
-    if (this.destroyed) {
-      return null
-    }
-
-    if (!this.state.reserve(group, index, MotionPriority.FORCE)) {
-      return null
-    }
-
-    const definition = this.getMotionDefinition(group, index)
-
-    if (!definition) {
-      return null
-    }
-
-    if (this.currentAudio) {
-      SoundManager.dispose(this.currentAudio)
-    }
-
-    const motion = (await this.loadMotion(group, index)) as Live2DMotion
-
-    if (!this.state.start(motion, group, index, MotionPriority.FORCE)) {
-      return null
-    }
-
-    if (this.state.shouldOverrideExpression()) {
-      if (this.expressionManager) this.expressionManager.resetExpression()
-    }
-
-    logger.log(this.tag, 'Start motion:', this.getMotionName(definition))
-
-    this.emit('motionStart', group, index, undefined)
-
-    if (expression && this.expressionManager && this.state.shouldOverrideExpression()) {
-      await this.expressionManager.setExpression(expression)
-    }
-
-    return motion
-  }
-
-  /**
-   * Play the last frame of the given motion, optionally applying an expression.
-   * @param group - Motion group.
-   * @param index - Motion index.
-   * @param expression - Expression to apply (optional).
-   * @returns Promise resolving to true if successful.
-   * @abstract
-   */
-  abstract motionLastFrame(
-    group: string,
-    index: number,
-    {
-      expression
-    }: {
-      expression?: number | string
-    }
-  ): Promise<boolean>
 
   private getMotionDefinition(group: string, index: number): MotionSpec | undefined {
     const definition = this.definitions?.[group]?.[index]

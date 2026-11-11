@@ -43,24 +43,20 @@ const model = await Live2DModel.from('model.json', {
 
 Complex models (many masked drawables, high vertex density, etc.) can produce visual artifacts when mask precision is insufficient. The engine automatically analyzes the model structure and enables high-precision masks when needed. This is enabled by default and can also be controlled manually.
 
-### Parallel Motions & Last-Frame Freeze
+### Parallel Motions & Motion Sampling
 
 - **Parallel playback**: drive multiple motion groups simultaneously, useful for independent upper/lower body animations
-- **Last-frame freeze**: hold a motion on its final frame, useful for pose switching or static illustrations
 - **Loop override**: set `loop` per parallel motion item to override Cubism 3/4/5 motion JSON loop metadata
 
 ```ts
 // Parallel playback
-model.parallelMotion([
+model.motion([
   { group: 'upper_body', index: 0 },
   { group: 'lower_body', index: 1, loop: true }
 ])
 
-// Last-frame freeze
-await model.parallelLastFrame([
-  { group: 'arm', index: 0 },
-  { group: 'expression', index: 2 }
-])
+// Apply the final pose once
+await model.applyMotion('arm', 0, 'end')
 ```
 
 ## Feature List
@@ -68,7 +64,7 @@ await model.parallelLastFrame([
 - **Cubism 2 / 3 / 4 / 5** model support
 - Native PixiJS v8 rendering pipeline (Filter / RenderTexture / Render Pipe)
 - Texture LOD and automatic high-precision mask detection
-- Parallel motion playback / last-frame freeze
+- Parallel motion playback / one-time motion sampling
 - Real-time lip sync
 - PixiJS-style transforms: `position` / `scale` / `rotation` / `skew` / `anchor`
 - Mouse tracking / hit area detection
@@ -183,28 +179,20 @@ model.motion('group', index)
 ### Parallel Motions
 
 ```ts
-model.parallelMotion([
+model.motion([
   { group: group1, index: index1 },
   { group: group2, index: index2, loop: true }
 ])
 ```
 
-### Last-Frame Freeze
-
-**Single motion:**
+### Apply a Motion at a specific time
 
 ```ts
-model.motionLastFrame('group', index)
+await model.applyMotion('TapBody', 0, 1.2) // seconds
+await model.applyMotion('TapBody', 0, 'end')
 ```
 
-**Multiple motions:**
-
-```ts
-await model.parallelLastFrame([
-  { group: group1, index: index1 },
-  { group: group2, index: index2 }
-])
-```
+The result is applied once on the next model update, after active motions. The promise resolves when the application is queued. Parameters not targeted by the Motion retain their current values; later updates can change the result. This does not start audio or stop active motions.
 
 ### Lip Sync
 

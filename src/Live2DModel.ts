@@ -26,6 +26,14 @@ import { Automator, type AutomatorOptions } from './Automator'
 import { Live2DTransform } from './Live2DTransform'
 import type { JSONObject } from './types/helpers'
 
+export interface MotionRequest {
+  group: string
+  index: number
+  priority?: MotionPriority
+  ignoreParamIds?: string[]
+  loop?: boolean
+}
+
 export interface Live2DModelOptions extends InternalModelOptions, AutomatorOptions {
   /**
    * Defines which bounds are used to resolve the normalized {@link Live2DModel.anchor}.
@@ -472,7 +480,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     const frameDelta = this.deltaTime
     this.deltaTime = 0
 
-    if (frameDelta) {
+    if (frameDelta || this.internalModel.hasPendingMotionApplications) {
       this.internalModel.update(frameDelta, this.elapsedTime)
     }
 
@@ -663,8 +671,23 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    * @param [options.loop] - Whether the motion should loop. Overrides Cubism 3/4/5 motion JSON loop metadata when specified.
    * @return Promise that resolves with true if the motion is successfully started, with false otherwise.
    */
+  async motion(motions: MotionRequest[]): Promise<boolean[]>
   async motion(
     group: string,
+    index?: number,
+    priority?: MotionPriority,
+    options?: {
+      sound?: string
+      volume?: number
+      expression?: number | string
+      resetExpression?: boolean
+      onFinish?: () => void
+      onError?: (e: Error) => void
+      loop?: boolean
+    }
+  ): Promise<boolean>
+  async motion(
+    group: string | MotionRequest[],
     index?: number,
     priority?: MotionPriority,
     {
@@ -684,7 +707,21 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       onError?: (e: Error) => void
       loop?: boolean
     } = {}
-  ): Promise<boolean> {
+  ): Promise<boolean | boolean[]> {
+    if (Array.isArray(group)) {
+      this.internalModel.extendParallelMotionManager(group.length)
+      return Promise.all(
+        group.map((motion, index) =>
+          this.internalModel.parallelMotionManager[index]!.startMotion(
+            motion.group,
+            motion.index,
+            motion.priority,
+            { ignoreParamIds: motion.ignoreParamIds, loop: motion.loop }
+          )
+        )
+      )
+    }
+
     if (index === undefined) {
       return this.internalModel.motionManager.startRandomMotion(group, priority, {
         sound: sound,
@@ -708,88 +745,23 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     }
   }
 
-  async motionLastFrame(
-    group: string,
-    id: number,
-    {
-      expression = undefined
-    }: {
-      expression?: number | string
-    } = {}
-  ): Promise<boolean> {
-    return this.internalModel.motionManager.motionLastFrame(group, id, { expression: expression })
-  }
-
   /**
-   * Shorthand to start multiple motions in parallel.
-   * @param motionList - The motion list, each item includes:
-   *  group: The motion group,
-   *  index: Index in the motion group,
-   *  priority: The priority to be applied. (0: No priority, 1: IDLE, 2:NORMAL, 3:FORCE) (default: 2)
-   *  ignoreParamIds: The ids to be ignored,
-   *  loop: Whether the motion should loop.
-   * @return Promise that resolves with a list, indicates the motion is successfully started, with false otherwise.
+   * Queue a one-time application of a motion on the next model update.
+   * Time is in seconds; 'end' selects the end of the motion. The promise resolves
+   * when the application is queued, not when the model is rendered.
    */
-  async parallelMotion(
-    motionList: {
-      group: string
-      index: number
-      priority?: MotionPriority
-      ignoreParamIds?: string[]
-      loop?: boolean
-    }[]
-  ): Promise<boolean[]> {
-    this.internalModel.extendParallelMotionManager(motionList.length)
-    const result = motionList.map((m, idx) =>
-      this.internalModel.parallelMotionManager[idx]!.startMotion(m.group, m.index, m.priority, {
-        ignoreParamIds: m.ignoreParamIds,
-        loop: m.loop
-      })
-    )
-    const flags: boolean[] = []
-    for (const r of result) {
-      flags.push(await r)
-    }
-    return flags
-  }
-
-  /**
-   * Shorthand to play the last frame of multiple motions in parallel and await their completion.
-   *
-   * This method initiates the final frame of each specified motion concurrently,
-   * leveraging the internal parallel motion manager. Each motion's completion is awaited
-   * sequentially, and the results are returned as an array of success flags.
-   *
-   * @async
-   * @param {{group: string, index: number, priority?: MotionPriority}[]} motionList - Array of motions to execute.
-   * @param {string} motionList.group - Motion group identifier (e.g., "idle", "walk").
-   * @param {number} motionList.index - Index within the motion group.
-   * @param {MotionPriority} [motionList.priority=2] - Motion priority (0: None, 1: IDLE, 2: NORMAL, 3: FORCE).
-   * @returns {Promise<boolean[]>} Resolves with an array where each boolean indicates
-   *                               whether the corresponding motion completed successfully.
-   */
-  async parallelLastFrame(
-    motionList: {
-      group: string
-      index: number
-    }[]
-  ): Promise<boolean[]> {
-    this.internalModel.extendParallelMotionManager(motionList.length)
-    const result = motionList.map((m, idx) =>
-      this.internalModel.parallelMotionManager[idx]!.playMotionLastFrame(m.group, m.index)
-    )
-    const flags: boolean[] = []
-    for (const r of result) {
-      flags.push(await r)
-    }
-    return flags
+  async applyMotion(group: string, index: number, time: number | 'end'): Promise<boolean> {
+    return this.internalModel.motionManager.applyMotion(group, index, time)
   }
 
   /**
    * Stops all playing motions as well as the sound.
    */
   stopMotions(): void {
-    return this.internalModel.motionManager.stopAllMotions()
+    this.internalModel.motionManager.stopAllMotions()
+    for (const manager of this.internalModel.parallelMotionManager) {
+      manager.stopAllMotions()
+    }
   }
 
   /**
@@ -1129,7 +1101,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     const frameDelta = this.deltaTime
     this.deltaTime = 0
 
-    if (frameDelta) {
+    if (frameDelta || this.internalModel.hasPendingMotionApplications) {
       this.internalModel.update(frameDelta, this.elapsedTime)
     }
 

@@ -43,24 +43,20 @@ const model = await Live2DModel.from('model.json', {
 
 复杂模型（大量遮罩 Drawable、高顶点密度等）容易因遮罩精度不足产生视觉瑕疵。引擎会自动分析模型结构，在需要时启用高精度遮罩，默认开启，也可手动控制。
 
-### 并行动作与末帧冻结
+### 并行动作与 Motion 采样
 
 - **并行播放**：同时驱动多个动作组，适用于上下半身独立动画等场景
-- **末帧冻结**：将动作定格在最后一帧，适用于立绘切换、姿态固定
 - **循环覆盖**：可在每个并行动作条目中设置 `loop`，覆盖 Cubism 3/4/5 动作 JSON 中的循环配置
 
 ```ts
 // 并行播放
-model.parallelMotion([
+model.motion([
   { group: 'upper_body', index: 0 },
   { group: 'lower_body', index: 1, loop: true }
 ])
 
-// 末帧冻结
-await model.parallelLastFrame([
-  { group: 'arm', index: 0 },
-  { group: 'expression', index: 2 }
-])
+// 应用一次末帧姿态
+await model.applyMotion('arm', 0, 'end')
 ```
 
 ## 功能一览
@@ -68,7 +64,7 @@ await model.parallelLastFrame([
 - 支持 **Cubism 2 / 3 / 4 / 5** 模型
 - PixiJS v8 原生渲染管线（Filter / RenderTexture / Render Pipe）
 - 纹理 LOD 与高精度遮罩自动检测
-- 并行动作播放 / 动作末帧冻结
+- 并行动作播放 / Motion 一次性采样
 - 实时口型同步（Lip Sync）
 - PixiJS 风格变换：`position` / `scale` / `rotation` / `skew` / `anchor`
 - 鼠标追踪 / 命中区域检测（Hit Area）
@@ -184,28 +180,20 @@ model.motion('group', index)
 ### 并行动作
 
 ```ts
-model.parallelMotion([
+model.motion([
   { group: group1, index: index1 },
   { group: group2, index: index2, loop: true }
 ])
 ```
 
-### 末帧冻结
-
-**单动作：**
+### 在指定时间应用 Motion
 
 ```ts
-model.motionLastFrame('group', index)
+await model.applyMotion('TapBody', 0, 1.2) // 秒
+await model.applyMotion('TapBody', 0, 'end')
 ```
 
-**多动作：**
-
-```ts
-await model.parallelLastFrame([
-  { group: group1, index: index1 },
-  { group: group2, index: index2 }
-])
-```
+Motion 会在下一次模型更新中、其他 Motion 更新之后应用一次。Promise 在操作加入队列后完成。Motion 未涉及的参数保留当前值，后续更新仍可改变结果；此操作不会播放音频或停止正在播放的 Motion。
 
 ### 口型同步
 

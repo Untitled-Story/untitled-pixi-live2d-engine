@@ -51,6 +51,7 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "playground": "vite",
+    "test": "node --test test/*.test.mjs",
     "build": "rimraf dist && node scripts/build.mjs",
     "pretype": "node scripts/patch-dts-generator.js",
     "type": "rimraf types && dts-bundle-generator src/index.ts --no-check --project=tsconfig.build.json -o=types/index.d.ts && dts-bundle-generator src/extra.ts --no-check --project=tsconfig.build.json -o=types/extra.d.ts ",

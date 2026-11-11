@@ -43,24 +43,20 @@ const model = await Live2DModel.from('model.json', {
 
 複雑なモデル（多数のマスク Drawable、高い頂点密度など）では、マスク精度不足による描画の乱れが生じることがあります。エンジンがモデル構造を自動的に分析し、必要に応じて高精度マスクを有効にします。デフォルトで有効であり、手動での制御も可能です。
 
-### 並列モーション・最終フレーム固定
+### 並列モーションと Motion のサンプリング
 
 - **並列再生**：複数のモーショングループを同時に駆動（上半身・下半身の独立アニメーションなど）
-- **最終フレーム固定**：モーションを最終フレームで停止させる（立ち絵の切り替え、ポーズ固定など）
 - **ループ上書き**：各並列モーション項目に `loop` を指定して、Cubism 3/4/5 モーション JSON のループ設定を上書きできます
 
 ```ts
 // 並列再生
-model.parallelMotion([
+model.motion([
   { group: 'upper_body', index: 0 },
   { group: 'lower_body', index: 1, loop: true }
 ])
 
-// 最終フレーム固定
-await model.parallelLastFrame([
-  { group: 'arm', index: 0 },
-  { group: 'expression', index: 2 }
-])
+// 最終フレームを一度だけ適用
+await model.applyMotion('arm', 0, 'end')
 ```
 
 ## 機能一覧
@@ -68,7 +64,7 @@ await model.parallelLastFrame([
 - **Cubism 2 / 3 / 4 / 5** モデル対応
 - PixiJS v8 ネイティブレンダリングパイプライン（Filter / RenderTexture / Render Pipe）
 - テクスチャ LOD・高精度マスク自動検出
-- 並列モーション再生 / 最終フレーム固定
+- 並列モーション再生 / Motion の一度きりのサンプリング
 - リアルタイムリップシンク
 - PixiJS 形式のトランスフォーム：`position` / `scale` / `rotation` / `skew` / `anchor`
 - マウス追従 / ヒットエリア検出
@@ -183,28 +179,20 @@ model.motion('group', index)
 ### 並列モーション
 
 ```ts
-model.parallelMotion([
+model.motion([
   { group: group1, index: index1 },
   { group: group2, index: index2, loop: true }
 ])
 ```
 
-### 最終フレーム固定
-
-**単一モーション：**
+### 指定時刻の Motion を適用
 
 ```ts
-model.motionLastFrame('group', index)
+await model.applyMotion('TapBody', 0, 1.2) // 秒
+await model.applyMotion('TapBody', 0, 'end')
 ```
 
-**複数モーション：**
-
-```ts
-await model.parallelLastFrame([
-  { group: group1, index: index1 },
-  { group: group2, index: index2 }
-])
-```
+次のモデル更新時に、再生中の Motion の更新後に一度だけ適用します。Promise は処理がキューに追加された時点で完了します。Motion に含まれないパラメータは現在の値を維持し、その後の更新で結果が変わることがあります。音声の再生や Motion の停止は行いません。
 
 ### リップシンク
 

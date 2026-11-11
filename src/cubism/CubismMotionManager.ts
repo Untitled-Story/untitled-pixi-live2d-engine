@@ -11,8 +11,8 @@ import type { ACubismMotion } from '@cubism/motion/acubismmotion'
 import { CubismMotion } from '@cubism/motion/cubismmotion'
 import { CubismMotionJson } from '@cubism/motion/cubismmotionjson'
 import { CubismMotionQueueManager } from '@cubism/motion/cubismmotionqueuemanager'
+import { CubismMotionQueueEntry } from '@cubism/motion/cubismmotionqueueentry'
 import type { Mutable } from '@/types/helpers'
-import { motionSkipToLastFrame } from '@/cubism/MotionSkipLastFrameHelper'
 import type { CubismInternalModel } from '@/cubism/CubismInternalModel'
 import { csmVector } from '@cubism/type/csmvector'
 import { CubismFramework } from '@cubism/live2dcubismframework'
@@ -104,7 +104,23 @@ export class CubismMotionManager extends MotionManager<CubismMotion, CubismSpec.
 
     this.queueManager.stopAllMotions()
 
-    return this.queueManager.startMotion(motion, false) as number
+    return this.queueManager.startMotion(motion, true) as number
+  }
+
+  protected applyMotionAtTime(motion: CubismMotion, time: number | 'end'): void {
+    const entry = new CubismMotionQueueEntry()
+    const duration = motion.getLoopDuration()
+    const seconds = time === 'end' ? duration : Math.min(time, duration)
+    entry.setStartTime(0)
+    // A one-time application is not a fade-in or fade-out.
+    entry.setFadeInStartTime(-1e9)
+    motion.setLoop(false)
+    try {
+      motion.doUpdateParameters(this.parent.coreModel as CubismModel, seconds, 1, entry)
+    } finally {
+      motion.release()
+      entry.release()
+    }
   }
 
   protected _stopAllMotions(): void {
@@ -169,33 +185,6 @@ export class CubismMotionManager extends MotionManager<CubismMotion, CubismSpec.
 
     this.queueManager.release()
     ;(this as Partial<Mutable<this>>).queueManager = undefined
-  }
-
-  async motionLastFrame(
-    group: string,
-    index: number,
-    {
-      expression = undefined
-    }: {
-      expression?: number | string
-    } = {}
-  ): Promise<boolean> {
-    const motion = await this.getMotionAndApplyExpression(group, index, expression)
-
-    if (!motion) {
-      return false
-    }
-
-    this.playing = true
-
-    motionSkipToLastFrame(
-      this.queueManager,
-      this.parent as CubismInternalModel,
-      motion as CubismMotion
-    )
-
-    this.playing = false
-    return true
   }
 
   private createIdVector(ids: string[]): csmVector<CubismIdHandle> {

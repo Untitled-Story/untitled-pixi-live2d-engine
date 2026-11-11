@@ -118,6 +118,16 @@ export abstract class InternalModel extends EventEmitter {
 
   abstract readonly options: InternalModelOptions
 
+  private pendingMotionApplications: (() => void)[] = []
+
+  get hasPendingMotionApplications(): boolean {
+    return this.pendingMotionApplications.length > 0
+  }
+
+  queueMotionApplication(apply: () => void): void {
+    this.pendingMotionApplications.push(apply)
+  }
+
   focusController = new FocusController()
 
   abstract motionManager: MotionManager
@@ -333,6 +343,7 @@ export abstract class InternalModel extends EventEmitter {
    */
   destroy(): void {
     this.destroyed = true
+    this.pendingMotionApplications = []
     this.emit('destroy')
 
     this.motionManager.destroy()
@@ -365,6 +376,9 @@ export abstract class InternalModel extends EventEmitter {
     const parallelMotionUpdated = this.parallelMotionManager.map((m) => m.update(model, now))
     const motionUpdated =
       motionUpdated0 || parallelMotionUpdated.reduce((prev, curr) => prev || curr, false)
+
+    const applications = this.pendingMotionApplications.splice(0)
+    for (const apply of applications) apply()
 
     this.emit('afterMotionUpdate')
 

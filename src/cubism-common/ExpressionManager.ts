@@ -1,3 +1,4 @@
+import { Live2DLoader } from '@/factory/Live2DLoader'
 import type { ModelSettings } from '@/cubism-common/ModelSettings'
 import type { MotionManagerOptions } from '@/cubism-common/MotionManager'
 import { logger } from '@/utils'
@@ -41,6 +42,8 @@ export abstract class ExpressionManager<
    * the place will be filled with `null`.
    */
   expressions: (Expression | null | undefined)[] = []
+
+  private expressionTasks: (Promise<Expression | undefined> | undefined)[] = []
 
   /**
    * An empty Expression to reset all the expression parameters.
@@ -113,17 +116,44 @@ export abstract class ExpressionManager<
 
     const expression = await this._loadExpression(index)
 
+    if (this.destroyed) return undefined
+
     this.expressions[index] = expression
 
     return expression
   }
 
-  /**
-   * Loads the Expression. Will be implemented by Live2DFactory in order to avoid circular dependency.
-   * @ignore
-   */
-  private _loadExpression(_index: number): Promise<Expression | undefined> {
-    throw new Error('Not implemented.')
+  private _loadExpression(index: number): Promise<Expression | undefined> {
+    const existing = this.expressionTasks[index]
+    if (existing) return existing
+    const definition = this.definitions[index]
+    if (!definition) return Promise.resolve(undefined)
+    const path = this.getExpressionFile(definition)
+    const task = Live2DLoader.load({
+      url: path,
+      settings: this.settings,
+      type: this.expressionDataType ?? 'json',
+      target: this
+    })
+      .then((data) => {
+        if (this.destroyed) return undefined
+        const expression = this.createExpression(
+          data as Parameters<typeof this.createExpression>[0],
+          definition
+        )
+        this.emit('expressionLoaded', index, expression)
+        return expression
+      })
+      .catch((error: unknown) => {
+        logger.warn(this.tag, `Failed to load expression: ${path}\n`, error)
+        if (!this.destroyed) this.emit('expressionLoadError', index, error)
+        return undefined
+      })
+      .finally(() => {
+        this.expressionTasks[index] = undefined
+      })
+    this.expressionTasks[index] = task
+    return task
   }
 
   /**
@@ -220,6 +250,7 @@ export abstract class ExpressionManager<
   destroy() {
     this.destroyed = true
     this.emit('destroy')
+    this.expressionTasks = []
 
     const self = this as Mutable<Partial<this>>
     self.definitions = undefined

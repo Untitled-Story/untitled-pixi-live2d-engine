@@ -8,7 +8,6 @@ import type { CubismLegacyModelSettings } from '@/cubism-legacy/CubismLegacyMode
 import type { Cubism2Spec } from '@/types/Cubism2Spec'
 import type { Mutable } from '@/types/helpers'
 import './patch-motion'
-import { motionSkipToLastFrame } from '@/cubism-legacy/MotionSkipLastFrameHelper'
 import type { CubismLegacyInternalModel } from '@/cubism-legacy/CubismLegacyInternalModel'
 
 export class CubismLegacyMotionManager extends MotionManager<Live2DMotion, Cubism2Spec.Motion> {
@@ -91,6 +90,20 @@ export class CubismLegacyMotionManager extends MotionManager<Live2DMotion, Cubis
     return this.queueManager.startMotion(motion)
   }
 
+  protected applyMotionAtTime(motion: Live2DMotion, time: number | 'end'): void {
+    const queue = new MotionQueueManager()
+    const handle = queue.startMotion(motion)
+    const entry = queue.motions.find((item) => item && item._$sr === handle)
+    if (!entry) throw new Error('Unable to create a Cubism 2 motion entry.')
+    const duration = motion.getDurationMSec()
+    const milliseconds = time === 'end' ? duration : Math.min(time * 1000, duration)
+    try {
+      motion.updateParamExe(this.parent.coreModel as Live2DModelWebGL, milliseconds, 1, entry)
+    } finally {
+      queue.stopAllMotions()
+    }
+  }
+
   protected _stopAllMotions(): void {
     this.queueManager.stopAllMotions()
   }
@@ -102,32 +115,5 @@ export class CubismLegacyMotionManager extends MotionManager<Live2DMotion, Cubis
   destroy() {
     super.destroy()
     ;(this as Partial<Mutable<this>>).queueManager = undefined
-  }
-
-  async motionLastFrame(
-    group: string,
-    index: number,
-    {
-      expression = undefined
-    }: {
-      expression?: number | string
-    } = {}
-  ): Promise<boolean> {
-    const motion = await this.getMotionAndApplyExpression(group, index, expression)
-
-    if (!motion) {
-      return false
-    }
-
-    this.playing = true
-
-    motionSkipToLastFrame(
-      this.queueManager,
-      this.parent as CubismLegacyInternalModel,
-      motion as Live2DMotion
-    )
-
-    this.playing = false
-    return true
   }
 }
