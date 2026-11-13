@@ -26,6 +26,16 @@ import { Automator, type AutomatorOptions } from './Automator'
 import { Live2DTransform } from './Live2DTransform'
 import type { JSONObject } from './types/helpers'
 
+/** A snapshot of the model's unscaled local bounds, including their loading state. */
+export interface Live2DDrawableBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+  /** True while canvas dimensions are used because drawable data is unavailable. */
+  isFallback: boolean
+}
+
 export interface Live2DModelOptions extends InternalModelOptions, AutomatorOptions {
   /**
    * Defines which bounds are used to resolve the normalized {@link Live2DModel.anchor}.
@@ -401,6 +411,11 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       return
     }
 
+    const previousX = this._bounds.minX
+    const previousY = this._bounds.minY
+    const previousWidth = this._bounds.width
+    const previousHeight = this._bounds.height
+    const previousFallback = this._boundsRetryAfterDraw
     const drawableIds = this.internalModel.getDrawableIDs()
     tempModelBounds.clear()
 
@@ -456,6 +471,23 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
 
     if (applyAnchor && this.anchorMode === 'drawable') {
       this.onAnchorChange()
+    }
+
+    if (
+      previousX !== this._bounds.minX ||
+      previousY !== this._bounds.minY ||
+      previousWidth !== this._bounds.width ||
+      previousHeight !== this._bounds.height ||
+      previousFallback !== this._boundsRetryAfterDraw
+    ) {
+      const bounds: Live2DDrawableBounds = {
+        x: this._bounds.minX,
+        y: this._bounds.minY,
+        width: this._bounds.width,
+        height: this._bounds.height,
+        isFallback: this._boundsRetryAfterDraw
+      }
+      this.emit('drawableBoundsUpdated', bounds)
     }
   }
 
