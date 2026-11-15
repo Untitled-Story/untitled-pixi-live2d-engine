@@ -49,11 +49,12 @@ export class WebGPULive2DRenderer {
   private readonly uniform: GPUBuffer
   private readonly uniformData: Float32Array
   private readonly uniformStride: number
-  private readonly sampler: GPUSampler
+  private readonly maskSampler: GPUSampler
   private readonly meshes: Mesh[] = []
   private readonly masks = new Map<string, MaskGroup>()
   private readonly drawableMasks: (MaskGroup | undefined)[] = []
   private atlases: GPUTexture[] = []
+  private atlasSamplers: GPUSampler[] = []
   private readonly pipelines = new Map<string, GPURenderPipeline>()
   private readonly white: GPUTexture
   private readonly whiteView: GPUTextureView
@@ -89,12 +90,13 @@ export class WebGPULive2DRenderer {
         },
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        { binding: 4, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
       ]
     })
     this.pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [this.layout] })
     this.shader = device.createShaderModule({ label: 'Live2D WGSL', code: modelShader })
-    this.sampler = device.createSampler({
+    this.maskSampler = device.createSampler({
       minFilter: 'linear',
       magFilter: 'linear',
       addressModeU: 'clamp-to-edge',
@@ -167,14 +169,15 @@ export class WebGPULive2DRenderer {
     return buffer
   }
 
-  private bind(atlas: GPUTextureView, mask: GPUTextureView): GPUBindGroup {
+  private bind(atlas: GPUTextureView, mask: GPUTextureView, sampler: GPUSampler): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.layout,
       entries: [
         { binding: 0, resource: { buffer: this.uniform, size: 128 } },
-        { binding: 1, resource: this.sampler },
+        { binding: 1, resource: sampler },
         { binding: 2, resource: atlas },
-        { binding: 3, resource: mask }
+        { binding: 3, resource: mask },
+        { binding: 4, resource: this.maskSampler }
       ]
     })
   }
@@ -247,17 +250,25 @@ export class WebGPULive2DRenderer {
       1
     ])
     const atlases = textures.map((texture) => renderer.texture.getGpuSource(texture.source))
-    if (atlases.some((atlas, i) => atlas !== this.atlases[i])) {
+    const samplers = textures.map((texture) => renderer.texture.getGpuSampler(texture.source.style))
+    if (
+      atlases.some((atlas, i) => atlas !== this.atlases[i]) ||
+      samplers.some((sampler, i) => sampler !== this.atlasSamplers[i])
+    ) {
       this.atlases = atlases
+      this.atlasSamplers = samplers
       const views = atlases.map((atlas) => atlas.createView())
       for (let i = 0; i < this.meshes.length; i++) {
-        const atlas = views[this.model.getDrawableTextureIndex(i)]
+        const textureIndex = this.model.getDrawableTextureIndex(i)
+        const atlas = views[textureIndex]
+        const sampler = samplers[textureIndex]!
         if (!atlas) throw new Error(`Drawable ${i} references a missing texture.`)
         this.meshes[i]!.mainBinding = this.bind(
           atlas,
-          this.drawableMasks[i]?.view ?? this.whiteView
+          this.drawableMasks[i]?.view ?? this.whiteView,
+          sampler
         )
-        this.meshes[i]!.maskBinding = this.bind(atlas, this.whiteView)
+        this.meshes[i]!.maskBinding = this.bind(atlas, this.whiteView, sampler)
       }
     }
     const target = renderer.renderTarget.renderTarget

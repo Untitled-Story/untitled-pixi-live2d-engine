@@ -9,9 +9,10 @@ struct Params {
   tint: vec4<f32>,
 }
 @group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var linearSampler: sampler;
+@group(0) @binding(1) var atlasSampler: sampler;
 @group(0) @binding(2) var atlas: texture_2d<f32>;
 @group(0) @binding(3) var maskTexture: texture_2d<f32>;
+@group(0) @binding(4) var maskSampler: sampler;
 
 struct VertexOut {
   @builtin(position) position: vec4<f32>,
@@ -27,12 +28,12 @@ struct VertexOut {
   return out;
 }
 @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4<f32> {
-  let tex = textureSample(atlas, linearSampler, in.uv);
+  let tex = textureSample(atlas, atlasSampler, in.uv);
   let multiplied = tex.rgb * params.multiply.rgb;
   let screened = multiplied + params.screen.rgb * tex.a - multiplied * params.screen.rgb;
   var color = vec4<f32>(screened, tex.a) * params.tint * params.options.x;
   // Sample unconditionally: derivatives must remain in uniform control flow.
-  let inverseCoverage = textureSample(maskTexture, linearSampler, in.maskUv).r;
+  let inverseCoverage = textureSample(maskTexture, maskSampler, in.maskUv).r;
   if (params.options.y > 1.5) {
     color *= inverseCoverage;
   } else if (params.options.y > 0.5) {
@@ -41,7 +42,7 @@ struct VertexOut {
   return color;
 }
 @fragment fn fragmentMask(in: VertexOut) -> @location(0) vec4<f32> {
-  let alpha = textureSample(atlas, linearSampler, in.uv).a;
+  let alpha = textureSample(atlas, atlasSampler, in.uv).a;
   return vec4<f32>(alpha);
 }
 `

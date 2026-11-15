@@ -362,6 +362,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
   readonly anchorMode: NonNullable<Live2DModelOptions['anchorMode']>
   private readonly textureLODStates: (Live2DTextureLODState | undefined)[] = []
   private readonly textureLODFailures: (Live2DTextureLODFailures | undefined)[] = []
+  private readonly textureLODSubmissions = new Set<Promise<void>>()
 
   /** @override
    * The Live2DTransform instance for this model.
@@ -1033,8 +1034,14 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
       return
     }
 
-    state.texture.destroy(true)
     this.textureLODStates[index] = undefined
+    // A shared WebGPU encoder may still reference this LOD from an earlier draw.
+    // Retire the cached state now, but keep its GPU texture alive until submission.
+    if (this.textureLODSubmissions.size) {
+      void Promise.all(this.textureLODSubmissions).then(() => state.texture.destroy(true))
+    } else {
+      state.texture.destroy(true)
+    }
   }
 
   private destroyTextureLODStates(): void {
@@ -1170,13 +1177,20 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
   }
 
   private renderWebGPU(renderer: WebGPURenderer): void {
-    const { projectionMatrix, offset, worldTransformMatrix } =
+    const { projectionMatrix, offset, worldTransformMatrix, worldColor } =
       renderer.globalUniforms.globalUniformData
     const adjustedWorld = tempWorldMatrix.copyFrom(worldTransformMatrix).append(this.groupTransform)
     const effectiveScale = getMatrixMaxScale(adjustedWorld) * renderer.resolution
     const textures = this.textures.map((texture, i) =>
       this.resolveTextureForRender(i, texture, effectiveScale)
     )
+    if (textures.some((texture, i) => this.textureLODStates[i]?.texture === texture)) {
+      const submitted = renderer.encoder.commandFinished
+      if (!this.textureLODSubmissions.has(submitted)) {
+        this.textureLODSubmissions.add(submitted)
+        void submitted.then(() => this.textureLODSubmissions.delete(submitted))
+      }
+    }
     const frameDelta = this.deltaTime
     this.deltaTime = 0
     if (frameDelta) {
@@ -1185,7 +1199,8 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     adjustedWorld.tx -= offset?.x ?? 0
     adjustedWorld.ty -= offset?.y ?? 0
     this.internalModel.updateTransform(tempMatrix.copyFrom(projectionMatrix).append(adjustedWorld))
-    this.internalModel.drawWebGPU(renderer, textures, this.groupAlpha)
+    const globalAlpha = (worldColor >>> 24) / 255
+    this.internalModel.drawWebGPU(renderer, textures, this.groupAlpha * globalAlpha)
     if (this._boundsRetryAfterDraw) this.updateDrawableBounds(true)
   }
 
