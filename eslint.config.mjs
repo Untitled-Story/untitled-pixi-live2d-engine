@@ -25,6 +25,8 @@ export default defineConfig([
     'overrides',
     'types',
     'tests/**',
+    // Local WebGPU experiments and captured evidence are kept out of linting.
+    'data/**',
     '**/Core',
     '!Core/README.md',
     '!Core/live2d.d.ts'

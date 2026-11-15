@@ -4,7 +4,7 @@ import type { MotionManager, MotionManagerOptions } from '@/cubism-common/Motion
 import type { ParallelMotionManager } from '@/cubism-common/ParallelMotionManager'
 import type { CommonLayout } from '@/cubism-common/layout'
 import { setupLayoutMatrix } from '@/cubism-common/layout'
-import { EventEmitter, Matrix } from 'pixi.js'
+import { EventEmitter, Matrix, type Texture, type WebGPURenderer } from 'pixi.js'
 import type { Mutable } from '@/types/helpers'
 import type { CubismMotion } from '@cubism/motion/cubismmotion'
 
@@ -95,8 +95,8 @@ export interface InternalModelOptions extends MotionManagerOptions {
   eyeBlink?: boolean
 
   /**
-   * Whether to use Cubism's high precision clipping mask rendering.
-   * Only supported by Cubism 3/4/5 models.
+   * Whether to use Cubism's high precision WebGL clipping mask rendering.
+   * Only supported by Cubism 3/4/5 models. WebGPU uses independent mask buffers.
    * @default 'auto'
    */
   useHighPrecisionMask?: boolean | 'auto'
@@ -326,6 +326,11 @@ export abstract class InternalModel extends EventEmitter {
    */
   updateTransform(transform: Matrix) {
     this.drawingMatrix.copyFrom(transform).append(this.localTransform)
+  }
+
+  /** Draws on Pixi's active WebGPU target, implemented by each supported runtime. */
+  drawWebGPU(_renderer: WebGPURenderer, _textures: Texture[], _opacity: number): void {
+    throw new Error('This Live2D runtime does not implement WebGPU rendering.')
   }
 
   /**
