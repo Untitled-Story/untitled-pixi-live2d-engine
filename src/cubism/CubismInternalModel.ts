@@ -18,7 +18,8 @@ import { CubismShaderManager_WebGL } from '@cubism/rendering/cubismshader_webgl'
 import { csmVector } from '@cubism/type/csmvector'
 import type { CubismIdManager } from '@cubism/id/cubismidmanager'
 import type { CubismIdHandle } from '@cubism/id/cubismid'
-import { Matrix } from 'pixi.js'
+import { Matrix, type Texture, type WebGPURenderer } from 'pixi.js'
+import { WebGPULive2DRenderer } from '@/rendering/webgpu/WebGPULive2DRenderer'
 import type { Mutable } from '@/types/helpers'
 import { clamp } from '@/utils'
 
@@ -187,6 +188,8 @@ export class CubismInternalModel extends InternalModel {
   declare physics?: CubismPhysics
 
   renderer = new CubismRenderer_WebGL()
+
+  private readonly gpuRenderers = new Map<WebGPURenderer, WebGPULive2DRenderer>()
 
   private readonly idManager: CubismIdManager
 
@@ -513,6 +516,20 @@ export class CubismInternalModel extends InternalModel {
     }
   }
 
+  drawWebGPU(renderer: WebGPURenderer, textures: Texture[], opacity: number): void {
+    let backend = this.gpuRenderers.get(renderer)
+    if (backend?.device !== renderer.gpu.device) {
+      if (backend) {
+        renderer.runners.destroy.remove(backend)
+        backend.destroy()
+      }
+      backend = new WebGPULive2DRenderer(renderer, this.coreModel)
+      this.gpuRenderers.set(renderer, backend)
+      renderer.runners.destroy.add(backend)
+    }
+    backend.render(this.drawingMatrix, textures, opacity, this.renderer.getModelColor())
+  }
+
   extendParallelMotionManager(managerCount: number) {
     while (this.parallelMotionManager.length < managerCount) {
       this.parallelMotionManager.push(new CubismParallelMotionManager(this))
@@ -520,6 +537,11 @@ export class CubismInternalModel extends InternalModel {
   }
 
   destroy() {
+    for (const [renderer, backend] of this.gpuRenderers) {
+      if (!backend.destroyed) renderer.runners.destroy.remove(backend)
+      backend.destroy()
+    }
+    this.gpuRenderers.clear()
     super.destroy()
 
     this.renderer.release()

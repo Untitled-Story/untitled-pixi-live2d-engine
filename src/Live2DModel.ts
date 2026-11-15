@@ -20,7 +20,8 @@ import {
   ObservablePoint,
   Point,
   Texture,
-  WebGLRenderer
+  WebGLRenderer,
+  WebGPURenderer
 } from 'pixi.js'
 import { Automator, type AutomatorOptions } from './Automator'
 import { Live2DTransform } from './Live2DTransform'
@@ -97,7 +98,7 @@ let live2DPluginFallbackWarned = false
  */
 class Live2DPipe {
   static extension = {
-    type: [ExtensionType.WebGLPipes],
+    type: [ExtensionType.WebGLPipes, ExtensionType.WebGPUPipes],
     name: 'live2d'
   } as const
 
@@ -149,7 +150,7 @@ class Live2DPipe {
 }
 
 /**
- * PixiJS extension entry for registering the Live2D WebGL render pipe.
+ * PixiJS extension entry for registering the Live2D WebGL / WebGPU render pipe.
  *
  * Register it before creating a renderer:
  *
@@ -1068,6 +1069,10 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    * @param renderer - The PixiJS Renderer instance.
    */
   renderLive2D = (renderer: Renderer) => {
+    if (renderer instanceof WebGPURenderer) {
+      this.renderWebGPU(renderer)
+      return
+    }
     if (!(renderer instanceof WebGLRenderer)) {
       throw new Error(`Renderer is not supported`)
     }
@@ -1162,6 +1167,26 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
         clearColorCache[3] = clearColor[3]
       }
     }
+  }
+
+  private renderWebGPU(renderer: WebGPURenderer): void {
+    const { projectionMatrix, offset, worldTransformMatrix } =
+      renderer.globalUniforms.globalUniformData
+    const adjustedWorld = tempWorldMatrix.copyFrom(worldTransformMatrix).append(this.groupTransform)
+    const effectiveScale = getMatrixMaxScale(adjustedWorld) * renderer.resolution
+    const textures = this.textures.map((texture, i) =>
+      this.resolveTextureForRender(i, texture, effectiveScale)
+    )
+    const frameDelta = this.deltaTime
+    this.deltaTime = 0
+    if (frameDelta) {
+      this.internalModel.update(frameDelta, this.elapsedTime)
+    }
+    adjustedWorld.tx -= offset?.x ?? 0
+    adjustedWorld.ty -= offset?.y ?? 0
+    this.internalModel.updateTransform(tempMatrix.copyFrom(projectionMatrix).append(adjustedWorld))
+    this.internalModel.drawWebGPU(renderer, textures, this.groupAlpha)
+    if (this._boundsRetryAfterDraw) this.updateDrawableBounds(true)
   }
 
   /**
