@@ -305,6 +305,8 @@ export class CubismLegacyInternalModel extends InternalModel {
 
     this.emit('beforeModelUpdate')
 
+    this.applyMotionApplicationsForRender()
+
     // The SDK's model.update() also initializes WebGL shaders and masks.
     // Keep model evaluation independent of whichever renderer draws it next.
     legacyContext(model).update()

@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Live2DModel, Live2DModelOptions } from '@/Live2DModel'
 import type { InternalModel, ModelSettings } from '@/cubism-common'
-import { ExpressionManager, MotionManager } from '@/cubism-common'
-import { Live2DLoader } from '@/factory/Live2DLoader'
 import {
   createInternalModel,
   jsonToSettings,
@@ -11,7 +9,6 @@ import {
   urlToJSON,
   waitUntilReady
 } from '@/factory/model-middlewares'
-import { logger } from '@/utils'
 import type { Middleware } from '@/utils/middleware'
 import { runMiddlewares } from '@/utils/middleware'
 import type { JSONObject } from '@/types/helpers'
@@ -179,12 +176,6 @@ export class Live2DFactory {
    * load tasks of each motion. The structure of each value in this map
    * is the same as respective {@link MotionManager.definitions}.
    */
-  static motionTasksMap = new WeakMap<MotionManager, Record<string, (Promise<any> | undefined)[]>>()
-
-  /**
-   * Load tasks of each expression.
-   */
-  static expressionTasksMap = new WeakMap<ExpressionManager, (Promise<any> | undefined)[]>()
 
   /**
    * Registers a Live2DRuntime.
@@ -243,166 +234,6 @@ export class Live2DFactory {
 
     live2dModel.emit('load')
   }
-
-  /**
-   * Loads a Motion and registers the task to {@link motionTasksMap}. The task will be automatically
-   * canceled when its owner - the MotionManager instance - has been destroyed.
-   * @param motionManager - MotionManager that owns this Motion.
-   * @param group - The motion group.
-   * @param index - Index in the motion group.
-   * @return Promise that resolves with the Motion, or with undefined if it can't be loaded.
-   */
-  static loadMotion<Motion, MotionSpec>(
-    motionManager: MotionManager<Motion, MotionSpec>,
-    group: string,
-    index: number
-  ): Promise<Motion | undefined> {
-    // errors in this method are always handled
-    const handleError = (e: any) => motionManager.emit('motionLoadError', group, index, e)
-
-    try {
-      const definition = motionManager.definitions[group]?.[index]
-
-      if (!definition) {
-        return Promise.resolve(undefined)
-      }
-
-      motionManager.once('destroy', () => Live2DFactory.releaseMotionTasks(motionManager))
-
-      let tasks = Live2DFactory.motionTasksMap.get(motionManager)
-
-      if (!tasks) {
-        tasks = {}
-        Live2DFactory.motionTasksMap.set(motionManager, tasks)
-      }
-
-      let taskGroup = tasks[group]
-
-      if (!taskGroup) {
-        taskGroup = []
-        tasks[group] = taskGroup
-      }
-
-      const path = motionManager.getMotionFile(definition)
-
-      taskGroup[index] ??= Live2DLoader.load({
-        url: path,
-        settings: motionManager.settings,
-        type: motionManager.motionDataType,
-        target: motionManager
-      })
-        .then((data) => {
-          const taskGroup = Live2DFactory.motionTasksMap.get(motionManager)?.[group]
-
-          if (taskGroup) {
-            taskGroup[index] = undefined
-          }
-
-          const motionData = data as Parameters<typeof motionManager.createMotion>[0]
-          const motion = motionManager.createMotion(motionData, group, definition)
-
-          motionManager.emit('motionLoaded', group, index, motion)
-
-          return motion
-        })
-        .catch((e) => {
-          logger.warn(motionManager.tag, `Failed to load motion: ${path}\n`, e)
-          handleError(e)
-        })
-
-      return taskGroup[index]
-    } catch (e) {
-      logger.warn(motionManager.tag, `Failed to load motion at "${group}"[${index}]\n`, e)
-      handleError(e)
-    }
-
-    return Promise.resolve(undefined)
-  }
-
-  /**
-   * Loads an Expression and registers the task to {@link expressionTasksMap}. The task will be automatically
-   * canceled when its owner - the ExpressionManager instance - has been destroyed.
-   * @param expressionManager - ExpressionManager that owns this Expression.
-   * @param index - Index of the Expression.
-   * @return Promise that resolves with the Expression, or with undefined if it can't be loaded.
-   */
-  static loadExpression<Expression, ExpressionSpec>(
-    expressionManager: ExpressionManager<Expression, ExpressionSpec>,
-    index: number
-  ): Promise<Expression | undefined> {
-    // errors in this method are always handled
-    const handleError = (e: any) => expressionManager.emit('expressionLoadError', index, e)
-
-    try {
-      const definition = expressionManager.definitions[index]
-
-      if (!definition) {
-        return Promise.resolve(undefined)
-      }
-
-      expressionManager.once('destroy', () =>
-        Live2DFactory.releaseExpressionTasks(expressionManager)
-      )
-
-      let tasks = Live2DFactory.expressionTasksMap.get(expressionManager)
-
-      if (!tasks) {
-        tasks = []
-        Live2DFactory.expressionTasksMap.set(expressionManager, tasks)
-      }
-
-      const path = expressionManager.getExpressionFile(definition)
-      const responseType = expressionManager.expressionDataType ?? 'json'
-
-      tasks[index] ??= Live2DLoader.load({
-        url: path,
-        settings: expressionManager.settings,
-        type: responseType,
-        target: expressionManager
-      })
-        .then((data) => {
-          const tasks = Live2DFactory.expressionTasksMap.get(expressionManager)
-
-          if (tasks) {
-            tasks[index] = undefined
-          }
-
-          const expressionData = data as Parameters<typeof expressionManager.createExpression>[0]
-          const expression = expressionManager.createExpression(expressionData, definition)
-
-          expressionManager.emit('expressionLoaded', index, expression)
-
-          return expression
-        })
-        .catch((e) => {
-          logger.warn(expressionManager.tag, `Failed to load expression: ${path}\n`, e)
-          handleError(e)
-        })
-
-      return tasks[index]
-    } catch (e) {
-      logger.warn(expressionManager.tag, `Failed to load expression at [${index}]\n`, e)
-      handleError(e)
-    }
-
-    return Promise.resolve(undefined)
-  }
-
-  static releaseMotionTasks(motionManager: MotionManager) {
-    Live2DFactory.motionTasksMap.delete(motionManager)
-  }
-
-  static releaseExpressionTasks(expressionManager: ExpressionManager) {
-    Live2DFactory.expressionTasksMap.delete(expressionManager)
-  }
-}
-
-MotionManager.prototype['_loadMotion'] = function (group, index) {
-  return Live2DFactory.loadMotion(this, group, index)
-}
-
-ExpressionManager.prototype['_loadExpression'] = function (index) {
-  return Live2DFactory.loadExpression(this, index)
 }
 
 FileLoader['live2dFactory'] = Live2DFactory

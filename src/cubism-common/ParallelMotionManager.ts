@@ -102,7 +102,9 @@ export abstract class ParallelMotionManager<
 
     this.playing = true
 
-    this._startMotion(motion! as Motion, undefined, ignoreParamIds, loop)
+    const playback = this.manager.createMotionInstance(group, index)
+    if (!playback) return false
+    this._startMotion(playback as Motion, undefined, ignoreParamIds, loop)
 
     return true
   }
@@ -212,6 +214,4 @@ export abstract class ParallelMotionManager<
    * @return True if the parameters have been actually updated.
    */
   protected abstract updateParameters(model: object, now: DOMHighResTimeStamp): boolean
-
-  abstract playMotionLastFrame(group: string, index: number): Promise<boolean>
 }

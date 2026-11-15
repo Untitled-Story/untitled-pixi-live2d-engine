@@ -464,6 +464,8 @@ export class CubismInternalModel extends InternalModel {
 
     this.emit('beforeModelUpdate')
 
+    this.applyMotionApplicationsForRender()
+
     model.update()
     model.loadParameters()
   }
