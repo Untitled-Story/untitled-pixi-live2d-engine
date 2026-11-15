@@ -1,27 +1,28 @@
 import type { Matrix, Texture, WebGPURenderer } from 'pixi.js'
-import type { CubismModel } from '@cubism/model/cubismmodel'
 import { alignedSize, blendState, maskKey, paddedIndices, type BlendMode } from './render-math'
 import { modelShader } from './shaders'
 
-export type DrawableModel = Pick<
-  CubismModel,
-  | 'getDrawableCount'
-  | 'getDrawableMaskCounts'
-  | 'getDrawableMasks'
-  | 'getDrawableTextureIndex'
-  | 'getDrawableVertices'
-  | 'getDrawableVertexUvs'
-  | 'getDrawableVertexIndices'
-  | 'getDrawableVertexIndexCount'
-  | 'getMultiplyColor'
-  | 'getScreenColor'
-  | 'getDrawableOpacity'
-  | 'getDrawableInvertedMaskBit'
-  | 'getDrawableBlendMode'
-  | 'getDrawableCulling'
-  | 'getDrawableRenderOrders'
-  | 'getDrawableDynamicFlagIsVisible'
->
+type DrawableColor = { r: number; g: number; b: number; a: number }
+
+/** Geometry and per-frame values consumed by the shared Cubism GPU backend. */
+export interface DrawableModel {
+  getDrawableCount(): number
+  getDrawableMaskCounts(): Int32Array
+  getDrawableMasks(): Int32Array[]
+  getDrawableTextureIndex(index: number): number
+  getDrawableVertices(index: number): Float32Array
+  getDrawableVertexUvs(index: number): Float32Array
+  getDrawableVertexIndices(index: number): Uint16Array
+  getDrawableVertexIndexCount(index: number): number
+  getMultiplyColor(index: number): DrawableColor
+  getScreenColor(index: number): DrawableColor
+  getDrawableOpacity(index: number): number
+  getDrawableInvertedMaskBit(index: number): boolean
+  getDrawableBlendMode(index: number): number
+  getDrawableCulling(index: number): boolean
+  getDrawableRenderOrders(): Int32Array
+  getDrawableDynamicFlagIsVisible(index: number): boolean
+}
 
 type Mesh = {
   positions: GPUBuffer
@@ -64,7 +65,8 @@ export class WebGPULive2DRenderer {
 
   constructor(
     private readonly renderer: WebGPURenderer,
-    model: DrawableModel
+    model: DrawableModel,
+    private readonly meshFrontFace?: GPUFrontFace
   ) {
     const device = renderer.gpu.device
     this.device = device
@@ -231,8 +233,8 @@ export class WebGPULive2DRenderer {
       transform.b,
       0,
       0,
-      -transform.c,
-      -transform.d,
+      transform.c,
+      transform.d,
       0,
       0,
       0,
@@ -322,7 +324,7 @@ export class WebGPULive2DRenderer {
         this.pipeline(
           mode,
           model.getDrawableCulling(index),
-          mirrored,
+          mask || !this.meshFrontFace ? mirrored : this.meshFrontFace === 'cw',
           mask ? 'rgba8unorm' : format,
           mask ? 1 : gpuTarget.msaaSamples,
           mask ? undefined : depthStencil,

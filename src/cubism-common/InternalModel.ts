@@ -318,11 +318,9 @@ export abstract class InternalModel extends EventEmitter {
     this.drawingMatrix.copyFrom(transform).append(this.localTransform)
   }
 
-  /** Draws on Pixi's active WebGPU target. Cubism 2 requires WebGL. */
+  /** Draws on Pixi's active WebGPU target, implemented by each supported runtime. */
   drawWebGPU(_renderer: WebGPURenderer, _textures: Texture[], _opacity: number): void {
-    throw new Error(
-      'WebGPU rendering is only supported for Cubism 3/4/5 models. Use WebGL for Cubism 2.'
-    )
+    throw new Error('This Live2D runtime does not implement WebGPU rendering.')
   }
 
   /**

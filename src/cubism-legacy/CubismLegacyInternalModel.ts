@@ -1,3 +1,6 @@
+import type { Texture, WebGPURenderer } from 'pixi.js'
+import { WebGPULive2DRenderer } from '@/rendering/webgpu/WebGPULive2DRenderer'
+import { Cubism2DrawData, legacyContext } from './Cubism2DrawData'
 import type { InternalModelOptions } from '@/cubism-common'
 import type { CommonHitArea, CommonLayout } from '@/cubism-common/InternalModel'
 import { InternalModel, normalizeHitAreaDefs } from '@/cubism-common/InternalModel'
@@ -63,6 +66,8 @@ export class CubismLegacyInternalModel extends InternalModel {
    */
   disableCulling = false
   private hasDrawn = false
+  private gpuData?: Cubism2DrawData
+  private readonly gpuRenderers = new Map<WebGPURenderer, WebGPULive2DRenderer>()
   private customHitAreas?: Record<string, CustomHitAreaBounds> | null
 
   constructor(
@@ -300,7 +305,9 @@ export class CubismLegacyInternalModel extends InternalModel {
 
     this.emit('beforeModelUpdate')
 
-    model.update()
+    // The SDK's model.update() also initializes WebGL shaders and masks.
+    // Keep model evaluation independent of whichever renderer draws it next.
+    legacyContext(model).update()
     model.loadParam()
   }
 
@@ -358,9 +365,33 @@ export class CubismLegacyInternalModel extends InternalModel {
     tempMatrixArray[13] = matrix.ty
 
     this.coreModel.setMatrix(tempMatrixArray)
-    this.coreModel.draw()
+    try {
+      legacyContext(this.coreModel).preDraw(this.coreModel.drawParamWebGL)
+      this.coreModel.draw()
+      this.hasDrawn = true
+    } finally {
+      this.disableCulling = disableCulling
+    }
+  }
+
+  drawWebGPU(renderer: WebGPURenderer, textures: Texture[], opacity: number): void {
+    this.gpuData ??= new Cubism2DrawData(this.coreModel)
+    const target = renderer.renderTarget.getGpuRenderTarget(renderer.renderTarget.renderTarget)
+    // Match the legacy WebGL path's culling policy on offscreen targets.
+    this.gpuData.refresh(this.disableCulling || !target.contexts[0])
+    let backend = this.gpuRenderers.get(renderer)
+    if (backend?.device !== renderer.gpu.device) {
+      if (backend) {
+        renderer.runners.destroy.remove(backend)
+        backend.destroy()
+      }
+      // Cubism 2 keeps clockwise front faces even when the model is mirrored.
+      backend = new WebGPULive2DRenderer(renderer, this.gpuData, 'cw')
+      this.gpuRenderers.set(renderer, backend)
+      renderer.runners.destroy.add(backend)
+    }
+    backend.render(this.drawingMatrix, textures, opacity)
     this.hasDrawn = true
-    this.disableCulling = disableCulling
   }
 
   extendParallelMotionManager(managerCount: number) {
@@ -370,6 +401,12 @@ export class CubismLegacyInternalModel extends InternalModel {
   }
 
   destroy() {
+    for (const [renderer, backend] of this.gpuRenderers) {
+      if (!backend.destroyed) renderer.runners.destroy.remove(backend)
+      backend.destroy()
+    }
+    this.gpuRenderers.clear()
+    this.gpuData = undefined
     super.destroy()
 
     // cubism2 core has a super dumb memory management so there's basically nothing much to do to release the model

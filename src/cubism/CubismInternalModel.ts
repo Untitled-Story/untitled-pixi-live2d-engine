@@ -189,6 +189,7 @@ export class CubismInternalModel extends InternalModel {
 
   renderer = new CubismRenderer_WebGL()
 
+  private readonly gpuTransform = new Matrix()
   private readonly gpuRenderers = new Map<WebGPURenderer, WebGPULive2DRenderer>()
 
   private readonly idManager: CubismIdManager
@@ -527,7 +528,11 @@ export class CubismInternalModel extends InternalModel {
       this.gpuRenderers.set(renderer, backend)
       renderer.runners.destroy.add(backend)
     }
-    backend.render(this.drawingMatrix, textures, opacity, this.renderer.getModelColor())
+    this.gpuTransform.copyFrom(this.drawingMatrix)
+    // Cubism 3+ model coordinates use the opposite Y direction to Pixi.
+    this.gpuTransform.c *= -1
+    this.gpuTransform.d *= -1
+    backend.render(this.gpuTransform, textures, opacity, this.renderer.getModelColor())
   }
 
   extendParallelMotionManager(managerCount: number) {

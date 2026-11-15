@@ -956,7 +956,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     this.deltaTime += dt
     this.elapsedTime += dt
 
-    // don't call `this.internalModel.update()` here, because it requires WebGL context
+    // Defer model evaluation until render preparation so animation and effect bounds stay in sync.
   }
 
   private resolveTextureForRender(
