@@ -174,6 +174,12 @@ app.stage.addChild(model)
 
 ## API Examples
 
+### Observe Drawable Bounds
+
+Use `drawableBoundsUpdated` to react when local bounds change or canvas fallback
+bounds become drawable bounds. See [the bounds event guide](docs/drawable-bounds-events.md)
+for payload details and loading/render timing.
+
 ### Play a Motion
 
 ```ts

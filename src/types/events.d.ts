@@ -1,8 +1,16 @@
 import type { InternalModel, ModelSettings } from '@/cubism-common'
 import type { Texture } from '@pixi/core'
 import type { JSONObject } from './helpers'
+import type { Live2DDrawableBounds } from '../Live2DModel'
 
 export interface Live2DModelEvents {
+  /**
+   * Local drawable bounds or their fallback state changed. Emitted after bounds and
+   * any anchor update have been applied. The payload is a snapshot, not the live Bounds.
+   * Subscribe before loading to observe initial fallback bounds as well.
+   */
+  drawableBoundsUpdated: [Live2DDrawableBounds]
+
   /**
    * @event - One or more hit areas are hit.
    * @param - The names of *hit* hit areas.
