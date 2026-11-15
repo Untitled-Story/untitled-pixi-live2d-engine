@@ -43,20 +43,24 @@ const model = await Live2DModel.from('model.json', {
 
 Complex models (many masked drawables, high vertex density, etc.) can produce visual artifacts when mask precision is insufficient. The engine automatically analyzes the model structure and enables high-precision masks when needed. This is enabled by default and can also be controlled manually.
 
-### Parallel Motions & Motion Sampling
+### Parallel Motions & Last-Frame Freeze
 
 - **Parallel playback**: drive multiple motion groups simultaneously, useful for independent upper/lower body animations
+- **Last-frame freeze**: hold a motion on its final frame, useful for pose switching or static illustrations
 - **Loop override**: set `loop` per parallel motion item to override Cubism 3/4/5 motion JSON loop metadata
 
 ```ts
 // Parallel playback
-model.motion([
+model.parallelMotion([
   { group: 'upper_body', index: 0 },
   { group: 'lower_body', index: 1, loop: true }
 ])
 
-// Apply the final pose once
-await model.applyMotion('arm', 0, 'end')
+// Last-frame freeze
+await model.parallelLastFrame([
+  { group: 'arm', index: 0 },
+  { group: 'expression', index: 2 }
+])
 ```
 
 ## Feature List
@@ -64,7 +68,7 @@ await model.applyMotion('arm', 0, 'end')
 - **Cubism 2 / 3 / 4 / 5** model support
 - Native PixiJS v8 rendering pipeline (Filter / RenderTexture / Render Pipe)
 - Texture LOD and automatic high-precision mask detection
-- Parallel motion playback / one-time motion sampling
+- Parallel motion playback / last-frame freeze
 - Real-time lip sync
 - PixiJS-style transforms: `position` / `scale` / `rotation` / `skew` / `anchor`
 - Mouse tracking / hit area detection
@@ -179,28 +183,28 @@ model.motion('group', index)
 ### Parallel Motions
 
 ```ts
-model.motion([
+model.parallelMotion([
   { group: group1, index: index1 },
   { group: group2, index: index2, loop: true }
 ])
 ```
 
-`motionLoaded` reports the cached Motion template. To customize each actual playback instance, use `motionInstanceCreated` on the primary motion manager (also fired for parallel playback):
+### Last-Frame Freeze
+
+**Single motion:**
 
 ```ts
-model.internalModel.motionManager.on('motionInstanceCreated', (group, index, motion) => {
-  // Customize the Cubism playback instance here.
-})
+model.motionLastFrame('group', index)
 ```
 
-### Apply a Motion at a specific time
+**Multiple motions:**
 
 ```ts
-await model.applyMotion('TapBody', 0, 1.2) // seconds
-await model.applyMotion('TapBody', 0, 'end')
+await model.parallelLastFrame([
+  { group: group1, index: index1 },
+  { group: group2, index: index2 }
+])
 ```
-
-The result is applied once on the next model update, after active motions. The promise resolves when the application is queued. Parameters not targeted by the Motion retain their current values; later updates can change the result. This does not start audio or stop active motions.
 
 ### Lip Sync
 
