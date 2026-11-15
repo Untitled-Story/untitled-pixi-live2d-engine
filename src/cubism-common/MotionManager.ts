@@ -9,6 +9,7 @@ import { EventEmitter } from 'pixi.js'
 import type { JSONObject, Mutable } from '@/types/helpers'
 import type { InternalModel } from '@/cubism-common/InternalModel'
 import type { Sound } from '@pixi/sound'
+import type { MotionManagerEvents } from '@/types/events'
 
 export interface MotionManagerOptions {
   /**
@@ -65,7 +66,9 @@ export enum MotionPreloadStrategy {
  * Responsible for loading, playing, and managing motion states and audio.
  * @emits {@link MotionManagerEvents}
  */
-export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> extends EventEmitter {
+export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> extends EventEmitter<
+  MotionManagerEvents<Motion> & { [event: `motion:${string}`]: [] }
+> {
   /**
    * Tag for logging.
    * @type {string}

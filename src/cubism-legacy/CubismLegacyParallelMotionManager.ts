@@ -30,7 +30,9 @@ export class CubismLegacyParallelMotionManager extends ParallelMotionManager<
     ignoreParamIds?: string[],
     _loop?: boolean
   ): number {
-    motion.onFinishHandler = onFinish
+    if (onFinish) {
+      motion.onFinishHandler = onFinish
+    }
 
     if (ignoreParamIds && ignoreParamIds.length > 0) {
       motion.motions = motion.motions.filter((item) => {

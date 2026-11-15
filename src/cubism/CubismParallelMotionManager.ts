@@ -49,7 +49,9 @@ export class CubismParallelMotionManager extends ParallelMotionManager<
     ignoreParamIds?: string[],
     loop?: boolean
   ): number {
-    motion.setFinishedMotionHandler(onFinish as (motion: ACubismMotion) => void)
+    if (onFinish) {
+      motion.setFinishedMotionHandler(onFinish as (motion: ACubismMotion) => void)
+    }
     motion.setLoop(loop ?? motion._motionData.loop)
 
     if (ignoreParamIds && ignoreParamIds.length > 0) {

@@ -13,7 +13,7 @@ import type { JSONObject, Mutable } from '@/types/helpers'
 export abstract class ExpressionManager<
   Expression = unknown,
   ExpressionSpec = unknown
-> extends EventEmitter<keyof ExpressionManagerEvents> {
+> extends EventEmitter<ExpressionManagerEvents<Expression>> {
   /**
    * Indicates the content type used when loading expressions.
    * @default "json"

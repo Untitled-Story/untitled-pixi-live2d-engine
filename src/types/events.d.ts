@@ -1,5 +1,6 @@
 import type { InternalModel, ModelSettings } from '@/cubism-common'
 import type { Texture } from '@pixi/core'
+import type { Sound } from '@pixi/sound'
 import type { JSONObject } from './helpers'
 
 export interface Live2DModelEvents {
@@ -73,7 +74,13 @@ export interface MotionManagerEvents<Motion = never> {
    * @event - An error occurs when loading a Motion.
    * @param - The error.
    */
-  motionLoadError: [unknown]
+  motionLoadError: [group: string, index: number, error: unknown]
+
+  /** @event - A motion has started. */
+  motionStart: [group: string, index: number, audio: Sound | null | undefined]
+
+  /** @event - Motion playback has finished. */
+  motionFinish: []
 
   /**
    * @event - Before destroyed.
@@ -86,13 +93,13 @@ export interface ExpressionManagerEvents<Expression = never> {
    * @event - An Expression has been loaded.
    * @param - The Expression instance, varies in different Cubism version.
    */
-  expressionLoaded: [Expression]
+  expressionLoaded: [index: number, expression: Expression]
 
   /**
    * @event - An error occurs when loading an Expression.
    * @param - The error.
    */
-  expressionLoadError: [unknown]
+  expressionLoadError: [index: number, error: unknown]
 
   /**
    * @event - Before destroyed.

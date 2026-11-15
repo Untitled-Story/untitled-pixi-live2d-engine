@@ -64,7 +64,7 @@ export class CubismMotionManager extends MotionManager<CubismMotion, CubismSpec.
             : eventValue && typeof eventValue === 'object'
               ? eventValue.s
               : 'undefined'
-      this.emit('motion:' + value)
+      this.emit(`motion:${value}`)
     })
   }
 
@@ -78,7 +78,9 @@ export class CubismMotionManager extends MotionManager<CubismMotion, CubismSpec.
     ignoreParamIds?: string[],
     loop?: boolean
   ): number {
-    motion.setFinishedMotionHandler(onFinish as (motion: ACubismMotion) => void)
+    if (onFinish) {
+      motion.setFinishedMotionHandler(onFinish as (motion: ACubismMotion) => void)
+    }
     motion.setLoop(loop ?? motion._motionData.loop)
 
     if (ignoreParamIds && ignoreParamIds.length > 0) {
