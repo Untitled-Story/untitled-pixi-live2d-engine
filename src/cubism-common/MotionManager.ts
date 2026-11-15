@@ -233,7 +233,8 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
   }
 
   /**
-   * Loads a Motion in a motion group. Errors in this method will not be thrown,
+   * Loads a cached Motion template. Playback uses separate instances.
+   * Errors in this method will not be thrown,
    * but be emitted with a "motionLoadError" event.
    * @param group - The motion group.
    * @param index - Index in the motion group.
@@ -309,11 +310,17 @@ export abstract class MotionManager<Motion = unknown, MotionSpec = unknown> exte
     return task
   }
 
-  /** Creates an independent playback instance from a previously loaded motion. */
+  /**
+   * Creates an independent playback instance from a previously loaded motion.
+   * Emits `motionInstanceCreated` before the instance is started.
+   */
   createMotionInstance(group: string, index: number): Motion | undefined {
     const data = this.motionData[group]?.[index]
     const definition = this.definitions?.[group]?.[index]
-    return data && definition ? this.createMotion(data, group, definition) : undefined
+    if (!data || !definition) return undefined
+    const motion = this.createMotion(data, group, definition)
+    this.emit('motionInstanceCreated', group, index, motion)
+    return motion
   }
 
   /** Queue a one-time application on the next model update. Time is measured in seconds. */

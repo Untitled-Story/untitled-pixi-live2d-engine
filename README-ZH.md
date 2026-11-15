@@ -186,6 +186,14 @@ model.motion([
 ])
 ```
 
+`motionLoaded` 返回缓存的 Motion 模板。若要自定义实际播放实例，请在主 Motion manager 上监听 `motionInstanceCreated`；并行播放也会触发该事件：
+
+```ts
+model.internalModel.motionManager.on('motionInstanceCreated', (group, index, motion) => {
+  // 在此自定义 Cubism 播放实例。
+})
+```
+
 ### 在指定时间应用 Motion
 
 ```ts

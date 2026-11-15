@@ -1165,7 +1165,7 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
     }
     const frameDelta = this.deltaTime
     this.deltaTime = 0
-    if (frameDelta) {
+    if (frameDelta || this.internalModel.hasPendingMotionApplications) {
       this.internalModel.update(frameDelta, this.elapsedTime)
     }
     adjustedWorld.tx -= offset?.x ?? 0

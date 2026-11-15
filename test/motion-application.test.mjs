@@ -11,7 +11,7 @@ const server = await createServer({
   root,
   optimizeDeps: { noDiscovery: true, include: [] },
   resolve: { alias: { '@': `${root}/src`, '@cubism': `${root}/cubism/src` } },
-  server: { middlewareMode: true },
+  server: { middlewareMode: true, ws: false },
   appType: 'custom'
 })
 afterTests(() => server.close())
@@ -146,7 +146,7 @@ nodeTest('legacy sampling converts seconds and uses a separate queue', async () 
   }
   let stopped = false
   global.MotionQueueManager = class {
-    motions = [{ _$sr: 1 }]
+    motions = [{ _$sr: 1, _$z2: -1 }]
     startMotion() {
       return 1
     }
@@ -170,6 +170,7 @@ nodeTest('legacy sampling converts seconds and uses a separate queue', async () 
   assert.equal(received[0], manager.parent.coreModel)
   assert.equal(received[1], 1200)
   assert.equal(received[2], 1)
+  assert.equal(received[3]._$z2, 0)
   assert.equal(stopped, true)
 })
 
@@ -328,4 +329,115 @@ nodeTest('modern playback releases the independent instance on stop', async () =
   assert.equal(released, 0)
   manager.queueManager.stopAllMotions()
   assert.equal(released, 1)
+})
+
+nodeTest(
+  'sampling remains visible for one frame without saving blink changes to the baseline',
+  async () => {
+    const { CubismInternalModel } = await server.ssrLoadModule('/src/cubism/CubismInternalModel.ts')
+    const model = Object.create(CubismInternalModel.prototype)
+    let value = 0
+    let baseline = 0
+    let rendered
+    model.coreModel = {
+      saveParameters() {
+        baseline = value
+      },
+      loadParameters() {
+        value = baseline
+      },
+      update() {
+        rendered = value
+      }
+    }
+    model.focusController = { update() {} }
+    model.motionManager = {
+      update() {
+        return false
+      }
+    }
+    model.parallelMotionManager = []
+    model.pendingMotionApplications = []
+    model.eyeBlink = {
+      updateParameters() {
+        value = 0.1
+      }
+    }
+    model.updateFocus = () => {}
+    model.updateNaturalMovements = () => {}
+    model.lipSync = false
+    model.emit = () => false
+    model.queueMotionApplication(() => {
+      value = 0.8
+    })
+    model.update(16, 16)
+    assert.equal(rendered, 0.8)
+    assert.equal(baseline, 0.8)
+  }
+)
+
+nodeTest('WebGPU applies pending samples even when the frame delta is zero', async () => {
+  const { Matrix } = await import('pixi.js')
+  const { Live2DModel } = await server.ssrLoadModule('/src/Live2DModel.ts')
+  let updated = 0
+  const model = Object.create(Live2DModel.prototype)
+  model.textures = []
+  model.deltaTime = 0
+  model.elapsedTime = 0
+  model.groupTransform = new Matrix()
+  model.groupAlpha = 1
+  model.internalModel = {
+    hasPendingMotionApplications: true,
+    update() {
+      updated++
+    },
+    updateTransform() {},
+    drawWebGPU() {}
+  }
+  model.renderWebGPU({
+    resolution: 1,
+    globalUniforms: {
+      globalUniformData: {
+        projectionMatrix: new Matrix(),
+        worldTransformMatrix: new Matrix(),
+        worldColor: 0xffffffff
+      }
+    }
+  })
+  assert.equal(updated, 1)
+})
+
+nodeTest('playback instance event allows per-instance customization', async () => {
+  const { ParallelMotionManager } = await server.ssrLoadModule(
+    '/src/cubism-common/ParallelMotionManager.ts'
+  )
+  class ParallelProbe extends ParallelMotionManager {
+    getMotionName() {
+      return 'test'
+    }
+    _startMotion(motion) {
+      this.playback = motion
+      return 0
+    }
+  }
+  const model = new InternalModel()
+  model.settings = { name: 'test' }
+  const manager = new FakeMotionManager(model)
+  model.motionManager = manager
+  const loaded = []
+  manager.on('motionLoaded', (_group, _index, motion) => loaded.push(motion))
+  manager.on('motionInstanceCreated', (_group, _index, motion) => {
+    motion.custom = 42
+  })
+  const original = Live2DLoader.load
+  Live2DLoader.load = async () => ({ curves: [1] })
+  try {
+    const parallel = new ParallelProbe(model)
+    await parallel.startMotion('Tap', 0)
+    assert.equal(parallel.playback.custom, 42)
+    assert.equal(loaded.length, 1)
+    assert.notEqual(loaded[0], parallel.playback)
+  } finally {
+    Live2DLoader.load = original
+  }
 })

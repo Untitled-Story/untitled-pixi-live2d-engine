@@ -185,6 +185,14 @@ model.motion([
 ])
 ```
 
+`motionLoaded` reports the cached Motion template. To customize each actual playback instance, use `motionInstanceCreated` on the primary motion manager (also fired for parallel playback):
+
+```ts
+model.internalModel.motionManager.on('motionInstanceCreated', (group, index, motion) => {
+  // Customize the Cubism playback instance here.
+})
+```
+
 ### Apply a Motion at a specific time
 
 ```ts

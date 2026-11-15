@@ -185,6 +185,14 @@ model.motion([
 ])
 ```
 
+`motionLoaded` はキャッシュされた Motion テンプレートを通知します。実際の再生インスタンスをカスタマイズするには、主 Motion manager の `motionInstanceCreated` を使用してください。並列再生でも発火します。
+
+```ts
+model.internalModel.motionManager.on('motionInstanceCreated', (group, index, motion) => {
+  // ここで Cubism の再生インスタンスをカスタマイズします。
+})
+```
+
 ### 指定時刻の Motion を適用
 
 ```ts

@@ -58,10 +58,16 @@ export interface Live2DModelEvents {
 
 export interface MotionManagerEvents<Motion = never> {
   /**
-   * @event - A Motion has been loaded.
-   * @param - The Motion instance, varies in different Cubism version.
+   * @event - A Motion resource has been loaded. The instance is a cached template,
+   * not the independent instance used for playback.
    */
-  motionLoaded: [Motion]
+  motionLoaded: [group: string, index: number, motion: Motion]
+
+  /**
+   * @event - A fresh playback instance has been created and can be customized.
+   * Fired on the primary MotionManager for both normal and parallel playback.
+   */
+  motionInstanceCreated: [group: string, index: number, motion: Motion]
 
   /**
    * @event - An error occurs when loading a Motion.

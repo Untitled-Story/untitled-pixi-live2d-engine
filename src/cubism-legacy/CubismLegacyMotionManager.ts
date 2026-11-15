@@ -94,7 +94,11 @@ export class CubismLegacyMotionManager extends MotionManager<Live2DMotion, Cubis
     const queue = new MotionQueueManager()
     const handle = queue.startMotion(motion)
     const entry = queue.motions.find((item) => item && item._$sr === handle)
-    if (!entry) throw new Error('Unable to create a Cubism 2 motion entry.')
+    if (!entry) {
+      throw new Error('Unable to create a Cubism 2 motion entry.')
+    }
+    // A freshly created Cubism 2 queue entry starts at -1 ms until its first update.
+    ;(entry as typeof entry & { _$z2: number })._$z2 = 0
     const duration = motion.getDurationMSec()
     const milliseconds = time === 'end' ? duration : Math.min(time * 1000, duration)
     try {

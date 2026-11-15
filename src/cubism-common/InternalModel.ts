@@ -120,6 +120,8 @@ export abstract class InternalModel extends EventEmitter {
 
   private pendingMotionApplications: (() => void)[] = []
 
+  private motionApplicationsForRender: (() => void)[] = []
+
   get hasPendingMotionApplications(): boolean {
     return this.pendingMotionApplications.length > 0
   }
@@ -349,6 +351,7 @@ export abstract class InternalModel extends EventEmitter {
   destroy(): void {
     this.destroyed = true
     this.pendingMotionApplications = []
+    this.motionApplicationsForRender = []
     this.emit('destroy')
 
     this.motionManager.destroy()
@@ -382,12 +385,19 @@ export abstract class InternalModel extends EventEmitter {
     const motionUpdated =
       motionUpdated0 || parallelMotionUpdated.reduce((prev, curr) => prev || curr, false)
 
-    const applications = this.pendingMotionApplications.splice(0)
-    for (const apply of applications) apply()
+    // Apply before parameter snapshots, then reapply after other effects for the rendered frame.
+    this.motionApplicationsForRender = this.pendingMotionApplications.splice(0)
+    for (const apply of this.motionApplicationsForRender) apply()
 
     this.emit('afterMotionUpdate')
 
     return motionUpdated
+  }
+
+  /** Apply sampled values after other effects so they are visible for this frame. */
+  protected applyMotionApplicationsForRender(): void {
+    const applications = this.motionApplicationsForRender.splice(0)
+    for (const apply of applications) apply()
   }
 
   /**
