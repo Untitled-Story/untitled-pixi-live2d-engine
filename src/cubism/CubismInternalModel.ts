@@ -2,6 +2,8 @@ import type { InternalModelOptions } from '@/cubism-common'
 import type { CommonHitArea, CommonLayout } from '@/cubism-common/InternalModel'
 import { InternalModel, normalizeHitAreaDefs } from '@/cubism-common/InternalModel'
 import { setupCubismLayoutMatrix } from '@/cubism-common/layout'
+import '@/cubism/cubism-shaders'
+import { CubismDrawData } from '@/cubism/CubismDrawData'
 import type { CubismModelSettings } from '@/cubism/CubismModelSettings'
 import { CubismMotionManager } from '@/cubism/CubismMotionManager'
 import { CubismParallelMotionManager } from '@/cubism/CubismParallelMotionManager'
@@ -15,7 +17,6 @@ import type { CubismModel } from '@cubism/model/cubismmodel'
 import type { CubismPhysics } from '@cubism/physics/cubismphysics'
 import { CubismRenderer_WebGL } from '@cubism/rendering/cubismrenderer_webgl'
 import { CubismShaderManager_WebGL } from '@cubism/rendering/cubismshader_webgl'
-import { csmVector } from '@cubism/type/csmvector'
 import type { CubismIdManager } from '@cubism/id/cubismidmanager'
 import type { CubismIdHandle } from '@cubism/id/cubismid'
 import { Matrix, type Texture, type WebGPURenderer } from 'pixi.js'
@@ -187,7 +188,8 @@ export class CubismInternalModel extends InternalModel {
   declare pose?: CubismPose
   declare physics?: CubismPhysics
 
-  renderer = new CubismRenderer_WebGL()
+  // The offscreen size is replaced from the real viewport in `setRenderState` before drawing.
+  renderer = new CubismRenderer_WebGL(1, 1)
 
   private readonly gpuTransform = new Matrix()
   private readonly gpuRenderers = new Map<WebGPURenderer, WebGPULive2DRenderer>()
@@ -249,17 +251,17 @@ export class CubismInternalModel extends InternalModel {
     const eyeBlinkParameters = this.settings.getEyeBlinkParameters()
 
     if (this.options.eyeBlink !== false && eyeBlinkParameters.length) {
-      const parameterIds = new csmVector<CubismIdHandle>()
+      const parameterIds = [] as CubismIdHandle[]
       for (const parameter of eyeBlinkParameters) {
-        parameterIds.pushBack(this.idManager.getId(parameter))
+        parameterIds.push(this.idManager.getId(parameter))
       }
 
       const eyeBlink = CubismEyeBlink.create()
       eyeBlink.setParameterIds?.(parameterIds)
       this.eyeBlink = eyeBlink
     }
-    const breathParams = new csmVector<BreathParameterData>()
-    breathParams.pushBack(
+    const breathParams = [] as BreathParameterData[]
+    breathParams.push(
       new BreathParameterData(
         this.idParamAngleX,
         0.0,
@@ -268,10 +270,10 @@ export class CubismInternalModel extends InternalModel {
         0.5
       )
     )
-    breathParams.pushBack(
+    breathParams.push(
       new BreathParameterData(this.idParamAngleY, 0.0, 8.0 * this.options.breathDepth!, 3.5345, 0.5)
     )
-    breathParams.pushBack(
+    breathParams.push(
       new BreathParameterData(
         this.idParamAngleZ,
         0.0,
@@ -280,7 +282,7 @@ export class CubismInternalModel extends InternalModel {
         0.5
       )
     )
-    breathParams.pushBack(
+    breathParams.push(
       new BreathParameterData(
         this.idParamBodyAngleX,
         0.0,
@@ -289,7 +291,7 @@ export class CubismInternalModel extends InternalModel {
         0.5
       )
     )
-    breathParams.pushBack(new BreathParameterData(this.idParamBreath, 0.0, 0.5, 3.2345, 0.5))
+    breathParams.push(new BreathParameterData(this.idParamBreath, 0.0, 0.5, 3.2345, 0.5))
 
     this.breath.setParameters(breathParams)
 
@@ -354,19 +356,14 @@ export class CubismInternalModel extends InternalModel {
       .translate(this.originalWidth / 2, this.originalHeight / 2)
   }
 
-  updateWebGLContext(gl: WebGLRenderingContext, glContextID: number): void {
+  updateWebGLContext(gl: WebGLRenderingContext, _glContextID: number): void {
     // reset resources that were bound to previous WebGL context
-    this.renderer.firstDraw = true
     this.renderer._bufferData = {
       vertex: null as unknown as WebGLBuffer,
       uv: null as unknown as WebGLBuffer,
       index: null as unknown as WebGLBuffer
     }
     this.renderer.startUp(gl)
-    // null when the model not using mask
-    if (this.renderer._clippingManager) {
-      this.renderer._clippingManager._currentFrameNo = glContextID
-    }
     CubismShaderManager_WebGL.getInstance().setGlContext(gl)
   }
 
@@ -392,7 +389,7 @@ export class CubismInternalModel extends InternalModel {
     const ids: string[] = []
 
     for (let i = 0; i < count; i++) {
-      ids.push(this.coreModel.getDrawableId(i).getString().s)
+      ids.push(this.coreModel.getDrawableId(i).getString())
     }
 
     return ids
@@ -524,7 +521,7 @@ export class CubismInternalModel extends InternalModel {
         renderer.runners.destroy.remove(backend)
         backend.destroy()
       }
-      backend = new WebGPULive2DRenderer(renderer, this.coreModel)
+      backend = new WebGPULive2DRenderer(renderer, new CubismDrawData(this.coreModel))
       this.gpuRenderers.set(renderer, backend)
       renderer.runners.destroy.add(backend)
     }

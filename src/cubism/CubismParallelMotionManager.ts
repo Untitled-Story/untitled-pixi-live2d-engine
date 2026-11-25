@@ -12,7 +12,6 @@ import { MotionPriority } from '@/cubism-common'
 import type { CubismInternalModel } from '@/cubism/CubismInternalModel'
 import { motionSkipToLastFrame } from '@/cubism/MotionSkipLastFrameHelper'
 import { logger } from '@/utils'
-import { csmVector } from '@cubism/type/csmvector'
 
 export class CubismParallelMotionManager extends ParallelMotionManager<
   CubismMotion,
@@ -56,24 +55,12 @@ export class CubismParallelMotionManager extends ParallelMotionManager<
     motion.setLoop(loop ?? motion._motionData.loop)
 
     if (ignoreParamIds && ignoreParamIds.length > 0) {
-      const curves = motion._motionData.curves
-      const filtered = createCurveContainer(curves)
-      const total = getCurveCount(curves)
-
-      for (let i = 0; i < total; i++) {
-        const curve = getCurveAt(curves, i)
-        if (!curve) {
-          continue
-        }
-        const id = getCurveId(curve)
-
-        if (!id || !ignoreParamIds.includes(id)) {
-          addCurve(filtered, curve)
-        }
-      }
+      const filtered = motion._motionData.curves.filter(
+        (curve) => !ignoreParamIds.includes(curve.id.getString())
+      )
 
       motion._motionData.curves = filtered
-      motion._motionData.curveCount = getCurveCount(filtered)
+      motion._motionData.curveCount = filtered.length
     }
 
     this.queueManager.stopAllMotions()
@@ -133,51 +120,3 @@ export class CubismParallelMotionManager extends ParallelMotionManager<
 }
 
 type MotionEventValue = { s: string } | string | number | undefined
-type CurveContainer<T> = csmVector<T> | T[]
-
-function isVector<T>(curves: CurveContainer<T>): curves is csmVector<T> {
-  return typeof (curves as csmVector<T>).pushBack === 'function'
-}
-
-function getCurveCount<T>(curves: CurveContainer<T>): number {
-  return isVector(curves) ? curves.getSize() : curves.length
-}
-
-function getCurveAt<T>(curves: CurveContainer<T>, index: number): T | undefined {
-  return isVector(curves) ? curves.at(index) : curves[index]
-}
-
-function getCurveId(curve: unknown): string | undefined {
-  if (!curve || typeof curve !== 'object') {
-    return undefined
-  }
-
-  const id = (curve as { id?: unknown }).id
-
-  if (typeof id === 'string') {
-    return id
-  }
-
-  if (id && typeof (id as { getString?: () => { s: string } }).getString === 'function') {
-    return (id as { getString: () => { s: string } }).getString().s
-  }
-
-  return undefined
-}
-
-function createCurveContainer<T>(curves: csmVector<T>): csmVector<T>
-function createCurveContainer<T>(curves: CurveContainer<T>): CurveContainer<T> {
-  if (isVector(curves)) {
-    return new csmVector<T>()
-  }
-
-  return []
-}
-
-function addCurve<T>(container: CurveContainer<T>, curve: T): void {
-  if (isVector(container)) {
-    container.pushBack(curve)
-  } else {
-    container.push(curve)
-  }
-}

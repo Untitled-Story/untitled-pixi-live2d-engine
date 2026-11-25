@@ -13,18 +13,18 @@ const assets = [
     file: coreDir + 'live2d.min.js'
   },
   {
-    url: 'https://cubism.live2d.com/sdk-web/bin/CubismSdkForWeb-5-r.4.zip',
+    url: 'https://cubism.live2d.com/sdk-web/bin/CubismSdkForWeb-5-r.5.zip',
     zipEntries: [
       {
-        entryFile: 'CubismSdkForWeb-5-r.4/Core/live2dcubismcore.js',
+        entryFile: 'CubismSdkForWeb-5-r.5/Core/live2dcubismcore.js',
         outputFile: coreDir + 'live2dcubismcore.js'
       },
       {
-        entryFile: 'CubismSdkForWeb-5-r.4/Core/live2dcubismcore.d.ts',
+        entryFile: 'CubismSdkForWeb-5-r.5/Core/live2dcubismcore.d.ts',
         outputFile: coreDir + 'live2dcubismcore.d.ts'
       },
       {
-        entryFile: 'CubismSdkForWeb-5-r.4/Core/live2dcubismcore.js.map',
+        entryFile: 'CubismSdkForWeb-5-r.5/Core/live2dcubismcore.js.map',
         outputFile: coreDir + 'live2dcubismcore.js.map'
       }
     ]
