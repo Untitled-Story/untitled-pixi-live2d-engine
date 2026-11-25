@@ -20,6 +20,11 @@
 - `Filter` および `RenderTexture` に対応
 - **zIndex ソート**・**ブレンドモード**に参加
 - レンダラーの解像度を継承し、フィルター適用時のぼやけを防止
+- Cubism 2 と Cubism 5 のネイティブ **WebGPU** レンダリングに対応（**実験的機能**、下記参照）
+
+#### WebGPU（実験的）
+
+`app.init()` で `preference: 'webgpu'` を指定すると、PixiJS の WebGPU レンダラーで描画できます。この機能は**実験的**であり、マイナーリリースで挙動や内部実装が変更される可能性があります。ブラウザ・GPU・モデルでの検証範囲も WebGL 経路ほど広くありません。本番環境では引き続き WebGL を推奨します。問題は GitHub Issues でご報告ください。
 
 ### Cubism 2–5 対応
 
@@ -80,7 +85,7 @@ await model.parallelLastFrame([
 
 - **PixiJS**：`8.x`
 - **Cubism ランタイム**：`2.1` または `5`
-- **ブラウザ**：`WebGL` と `ES6` をサポートすること
+- **ブラウザ**：`WebGL` と `ES6` をサポートすること（WebGPU は任意・実験的）
 
 ## インストール
 

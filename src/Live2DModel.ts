@@ -91,6 +91,7 @@ type Live2DPrepareInstruction = {
 type Live2DInstruction = Live2DModel | Live2DPrepareInstruction
 
 let live2DPluginFallbackWarned = false
+let webGPUExperimentalWarned = false
 
 /**
  * Internal PixiJS render pipe for Live2D models.
@@ -151,6 +152,8 @@ class Live2DPipe {
 
 /**
  * PixiJS extension entry for registering the Live2D WebGL / WebGPU render pipe.
+ *
+ * WebGPU rendering is experimental and may change in minor releases.
  *
  * Register it before creating a renderer:
  *
@@ -1077,6 +1080,12 @@ export class Live2DModel<IM extends InternalModel = InternalModel> extends Conta
    */
   renderLive2D = (renderer: Renderer) => {
     if (renderer instanceof WebGPURenderer) {
+      if (!webGPUExperimentalWarned) {
+        webGPUExperimentalWarned = true
+        console.warn(
+          '[untitled-pixi-live2d-engine] WebGPU rendering is experimental and may change in minor releases.'
+        )
+      }
       this.renderWebGPU(renderer)
       return
     }
