@@ -20,6 +20,11 @@ Registers a custom **Render Pipe** with `extensions.add(Live2DPlugin)` to integr
 - Supports `Filter` and `RenderTexture`
 - Participates in **zIndex sorting** and **blend modes**
 - Inherits renderer resolution — filters won't blur due to downsampling
+- Native **WebGPU** rendering for Cubism 2 and Cubism 5 (**experimental**, see below)
+
+#### WebGPU (Experimental)
+
+Set `preference: 'webgpu'` in `app.init()` to render with PixiJS's WebGPU renderer. This feature is **experimental**: behavior and internals may change in minor releases, and it has not been verified on as many browsers, GPUs and models as the WebGL path. WebGL remains the recommended default for production. Please report problems via GitHub issues.
 
 ### Cubism 2–5 Support
 
@@ -80,7 +85,7 @@ await model.parallelLastFrame([
 
 - **PixiJS**: `8.x`
 - **Cubism runtime**: `2.1` or `5`
-- **Browser**: must support `WebGL` and `ES6`
+- **Browser**: must support `WebGL` and `ES6` (WebGPU is optional and experimental)
 
 ## Installation
 

@@ -20,6 +20,11 @@
 - 支持 `Filter`（滤镜）与 `RenderTexture`（离屏渲染）
 - 参与 **zIndex 排序** 与 **混合模式**
 - 继承渲染器分辨率，滤镜不会因降采样而模糊
+- 支持 Cubism 2 与 Cubism 5 的原生 **WebGPU** 渲染（**实验性功能**，见下文）
+
+#### WebGPU（实验性）
+
+在 `app.init()` 中设置 `preference: 'webgpu'` 即可使用 PixiJS 的 WebGPU 渲染器。该功能为**实验性功能**：行为与内部实现可能在次版本中变更，在浏览器、GPU 与模型上的验证范围也不如 WebGL 路径广。生产环境仍推荐使用 WebGL。遇到问题请通过 GitHub Issues 反馈。
 
 ### Cubism 2–5 支持
 
@@ -80,7 +85,7 @@ await model.parallelLastFrame([
 
 - **PixiJS**：`8.x`
 - **Cubism 运行时**：`2.1` 或 `5`
-- **浏览器**：需支持 `WebGL` 与 `ES6`
+- **浏览器**：需支持 `WebGL` 与 `ES6`（WebGPU 为可选的实验性功能）
 
 ## 安装
 
