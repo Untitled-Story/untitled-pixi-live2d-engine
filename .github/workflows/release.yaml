@@ -62,3 +62,9 @@ jobs:
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           prerelease: ${{ env.PRERELEASE == 'true' }}
+
+      - name: Move prerelease channel to stable release
+        if: env.PRERELEASE != 'true'
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          npm dist-tag add "untitled-pixi-live2d-engine@${VERSION}" prerelease
