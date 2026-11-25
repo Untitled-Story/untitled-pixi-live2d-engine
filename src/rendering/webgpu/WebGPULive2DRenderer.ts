@@ -325,7 +325,11 @@ export class WebGPULive2DRenderer {
     }
     this.upload(encoder)
     const mirrored = matrix[0]! * matrix[5]! - matrix[1]! * matrix[4]! < 0
-    const draw = (pass: GPURenderPassEncoder, index: number, mask: boolean): void => {
+    const draw = (
+      pass: GPURenderPassEncoder | GPURenderBundleEncoder,
+      index: number,
+      mask: boolean
+    ): void => {
       const mesh = this.meshes[index]!
       if (!mesh.indexCount) return
       const mode = mask
