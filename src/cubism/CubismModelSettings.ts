@@ -145,7 +145,7 @@ export class CubismModelSettings extends ModelSettings {
       for (let i = 0; i < count; i++) {
         const id = this.getEyeBlinkParameterId?.(i)
         if (id?.getString) {
-          parameters.push(id.getString().s)
+          parameters.push(id.getString())
         }
       }
     } else {
@@ -186,7 +186,7 @@ export class CubismModelSettings extends ModelSettings {
       for (let i = 0; i < count; i++) {
         const id = this.getLipSyncParameterId?.(i)
         if (id?.getString) {
-          parameters.push(id.getString().s)
+          parameters.push(id.getString())
         }
       }
     } else if (Array.isArray(this.json.Groups)) {
